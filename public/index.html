@@ -509,6 +509,27 @@ $('#fprov').addEventListener('keydown', e=>{
 });
 $('#fprovClear').onclick = ()=>{ choose(null); $('#fprov').focus(); };
 
+// When served from a snapshot (the deployed Worker), say how fresh it is so
+// nobody mistakes it for live UCAS data.
+(async function snapshotAge(){
+  try{
+    const r = await fetch('/api/meta', {method:'POST',headers:{'Content-Type':'application/json'},body:'{}'});
+    if(!r.ok) return;
+    const d = await r.json();
+    const keys = Object.keys(d.meta||{}).filter(k=>k.startsWith('snapshot_'));
+    if(!keys.length) return;
+    const when = new Date(d.meta[keys[0]]);
+    const days = Math.floor((Date.now()-when)/86400000);
+    const el = document.createElement('span');
+    el.className = 'chip';
+    el.style.marginLeft = '8px';
+    el.title = 'This site serves a fixed snapshot, not live UCAS data';
+    el.textContent = 'snapshot ' + when.toISOString().slice(0,10) +
+                     (days > 0 ? ' · ' + days + 'd old' : ' · today');
+    document.querySelector('header').appendChild(el);
+  }catch(e){ /* local server has no snapshot; nothing to show */ }
+})();
+
 $('#go').onclick = search;
 $('#q').addEventListener('keydown', e=>{ if(e.key==='Enter') search(); });
 ['#fsub','#ftown','#ftar'].forEach(s=>$(s).addEventListener('input', ()=>{ if(ROWS.length) render(); }));

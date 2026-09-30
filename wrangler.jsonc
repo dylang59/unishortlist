@@ -1,0 +1,28 @@
+{
+  "$schema": "./node_modules/wrangler/config-schema.json",
+  "name": "ucasbuster",
+  "main": "worker.js",
+  "compatibility_date": "2026-09-15",
+
+  // Static pages (search + export UI) are served straight from assets; the
+  // Worker only handles /api/*. run_worker_first keeps the API routes from
+  // being shadowed by a same-named asset.
+  "assets": {
+    "directory": "./public",
+    "binding": "ASSETS",
+    "not_found_handling": "single-page-application",
+    "run_worker_first": ["/api/*"]
+  },
+
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "ucasbuster",
+      "database_id": "2a9c651a-e0b7-4ae3-9eec-c9e352084663"
+    }
+  ],
+
+  "observability": {
+    "enabled": true
+  }
+}
