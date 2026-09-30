@@ -5,8 +5,7 @@
   "description": "A faster, sortable front-end for UCAS undergraduate course search",
   "main": "server.js",
   "scripts": {
-    "start": "node server.js",
-    "check-2027": "node check-2027.js"
+    "start": "node server.js"
   },
   "engines": {
     "node": ">=18"

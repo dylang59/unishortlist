@@ -92,28 +92,46 @@
   <h1>UCAS <span>fast search</span></h1>
   <input id="q" placeholder="Course keyword (e.g. physics, law)" autocomplete="off">
   <select id="year">
-    <option value="2026">Sept 2026 entry</option>
-    <option value="2027">Sept 2027 entry</option>
+    <option value="2027">2027 entry</option>
+    <option value="2026">2026 entry</option>
+    <option value="2025">2025 entry</option>
     <option value="">Any year</option>
   </select>
   <select id="qual">
     <option value="">Any qualification</option>
-    <option>Bachelor degrees (with or without Honours)</option>
-    <option>Foundation degrees</option>
-    <option>HNC or CertHE</option>
-    <option>HND or DipHE</option>
+    <option value="Bach(hons)">Bachelor (Hons)</option>
+    <option value="Bachelor">Bachelor (ordinary)</option>
+    <option value="IMD">Integrated Masters</option>
+    <option value="Fdg">Foundation degree</option>
+    <option value="Foundation Year">Foundation year</option>
+    <option value="Cer">Certificate (HNC/CertHE)</option>
+    <option value="Dip">Diploma (HND/DipHE)</option>
   </select>
   <select id="mode">
     <option value="">Any mode</option>
     <option>Full-time</option>
     <option>Part-time</option>
-    <option>Distance learning</option>
+  </select>
+  <select id="region">
+    <option value="">Anywhere</option>
+    <option>Greater London</option>
+    <option>South East England</option>
+    <option>South West England</option>
+    <option>East of England</option>
+    <option>East Midlands</option>
+    <option>West Midlands</option>
+    <option>North West England</option>
+    <option>North East England</option>
+    <option>Yorkshire and the Humber</option>
+    <option>Scotland</option>
+    <option>Wales</option>
+    <option>Northern Ireland</option>
   </select>
   <select id="depth">
-    <option value="20">Fetch 200</option>
-    <option value="40">Fetch 400</option>
-    <option value="60">Fetch 600</option>
-    <option value="10">Fetch 100</option>
+    <option value="10">Fetch 1,000</option>
+    <option value="20">Fetch 2,000</option>
+    <option value="50">Fetch 5,000</option>
+    <option value="5">Fetch 500</option>
   </select>
   <button class="primary" id="go">Search</button>
 </header>
@@ -154,18 +172,14 @@ async function post(url, body){
 }
 
 function payload(){
-  // Undergraduate is a destination, not a scheme — filtering by scheme drops
-  // Oxford, Cambridge, LSE and ~45 other direct-application providers.
-  const p = { destinations:['Undergraduate'] };
+  const p = { studyLevel:'Undergraduate' };
   const term = $('#q').value.trim();
   if(term) p.searchTerm = term;
   const y = $('#year').value;
   if(y) p.academicYearId = y;
-  if($('#qual').value) p.qualifications = [$('#qual').value];
-  if($('#mode').value) p.attendanceTypes = [$('#mode').value];
-  // Push a picked university upstream so we search its whole catalogue
-  // rather than filtering whatever happened to load. Note this needs the
-  // alias value, not the display name.
+  if($('#qual').value) p.qualificationLevels = [$('#qual').value];
+  if($('#mode').value) p.studyModes = [$('#mode').value];
+  if($('#region').value) p.regions = [$('#region').value];
   if(PROVIDER) p.providers = [PROVIDER.value];
   return p;
 }
@@ -178,7 +192,7 @@ async function search(){
   try{
     const p = payload();
     const pages = parseInt($('#depth').value,10);
-    const data = await post('/api/bulk', Object.assign({}, p, {pages:pages, budgetMs:30000}));
+    const data = await post('/api/bulk', Object.assign({}, p, {limit: pages*100}));
     progress(80);
     ROWS = data.courses || [];
     const total = data.total;
@@ -188,12 +202,11 @@ async function search(){
     // Warn when the requested cycle simply isn't published by UCAS yet.
     const y = $('#year').value;
     const note = $('#note');
-    if(y === '2027' && ROWS.length < 50){
+    // Only warn when a cycle really is thin; 2027 is fully populated.
+    if(total != null && total > 0 && total < 200){
       note.hidden = false;
-      note.innerHTML = '<b>Heads up:</b> only '+(total==null?ROWS.length:total.toLocaleString())+
-        ' undergraduate courses are published for 2027 entry so far — providers have not uploaded their '+
-        '2027 catalogues yet. Search <b>2026</b> to explore, since course content and entry requirements '+
-        'mostly carry over year to year. This count is the ground truth for whether the cycle has filled out.';
+      note.innerHTML = '<b>Heads up:</b> only '+total.toLocaleString()+' courses match — '+
+        'this cycle or filter combination may not be fully published yet.';
     } else { note.hidden = true; }
 
     render();
@@ -217,7 +230,7 @@ function visible(){
         ft=$('#ftown').value.toLowerCase(), mt=parseInt($('#ftar').value,10);
   let rows = ROWS.filter(r=>{
     if(fp && (r.provider||'').toLowerCase() !== fp) return false;
-    if(fs && !((r.subjects||[]).join(' ')+' '+(r.title||'')).toLowerCase().includes(fs)) return false;
+    if(fs && !((r.subjects||[]).join(' ')+' '+(r.subjectText||'')+' '+(r.title||'')).toLowerCase().includes(fs)) return false;
     if(ft && !((r.town||'')+' '+(r.region||'')).toLowerCase().includes(ft)) return false;
     if(!isNaN(mt)){ const t=tariffNum(r.tariff); if(t==null || t<mt) return false; }
     return true;
@@ -335,7 +348,7 @@ let PROVIDERS = [], PROVIDER = null, ACTIVE = -1;
 
 async function loadProviders(){
   try{
-    const d = await post('/api/providers', {destinations:['Undergraduate']});
+    const d = await post('/api/providers', {studyLevel:'Undergraduate'});
     PROVIDERS = d.providers || [];
   }catch(e){ /* picker degrades to a plain filter box */ }
 }
