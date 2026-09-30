@@ -78,6 +78,39 @@ function algolia(params) {
   return p;
 }
 
+// The previous-generation index. Its records are shaped differently
+// (university/scheme/academicYear instead of provider.name/studyLevel/
+// academicYearId) and it only holds 2023-2025, but it carries per-
+// qualification entry grades that the current index does not expose.
+const LEGACY_INDEX = process.env.UCAS_LEGACY_INDEX || 'prod_courses';
+
+function legacy(params) {
+  const key = 'legacy:' + params;
+  const cached = cacheGet(key);
+  if (cached) { hits++; return Promise.resolve(cached); }
+  const pending = inflight.get(key);
+  if (pending) return pending;
+
+  misses++;
+  const p = fetch(`https://${ALGOLIA_APP}-dsn.algolia.net/1/indexes/${LEGACY_INDEX}/query`, {
+    method: 'POST',
+    headers: {
+      'X-Algolia-API-Key': ALGOLIA_KEY,
+      'X-Algolia-Application-Id': ALGOLIA_APP,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ params: params }),
+  }).then(async res => {
+    const data = await res.json();
+    if (data.message) throw new Error('Algolia: ' + data.message);
+    cacheSet(key, data);
+    return data;
+  }).finally(() => inflight.delete(key));
+
+  inflight.set(key, p);
+  return p;
+}
+
 // Build an Algolia params string. facetFilters is an array of arrays:
 // the outer array is ANDed, each inner array is ORed.
 function buildParams(q, extra) {
@@ -299,6 +332,12 @@ const routes = {
     const byId = {};
     const byTitle = {};
     const CONC = 4;
+    // Some universities — UCL, Oxford, Cambridge and most of the selective
+    // ones — never quote UCAS tariff points; they publish A-level grades
+    // ("AAB") instead, so ucasTariff is 0/0 for every course they list. The
+    // legacy index still carries those grades, so it is used as a second
+    // source below. Without it these providers show a permanently empty
+    // column, which reads as a bug rather than as "not applicable".
     for (let i = 0; i < providers.length; i += CONC) {
       const batch = providers.slice(i, i + CONC);
       await Promise.all(batch.map(async name => {
@@ -328,7 +367,52 @@ const routes = {
         } catch (e) { /* a missing provider just means no fallback for it */ }
       }));
     }
-    return { year: prev, tariffs: byId, byTitle: byTitle };
+    // Second source: the legacy index, for providers the current one gave us
+    // nothing for. It holds 2024/2025 rows carrying A-level grades in
+    // entryReq_al, which is what the selective universities actually publish.
+    const covered = new Set();
+    for (const k of Object.keys(byTitle)) covered.add(k.split('|')[0]);
+    const missing = providers.filter(p => !covered.has(p));
+
+    const grades = {};
+    const gradesByTitle = {};
+    for (let i = 0; i < missing.length; i += CONC) {
+      const batch = missing.slice(i, i + CONC);
+      await Promise.all(batch.map(async name => {
+        try {
+          const ff = encodeURIComponent(JSON.stringify([
+            ['university:' + name], ['scheme:' + (payload.studyLevel || 'Undergraduate')],
+          ]));
+          // A provider can have several hundred legacy rows across years, so
+          // page through them rather than taking only the first batch.
+          const first = await legacy('hitsPerPage=200&page=0&facetFilters=' + ff);
+          const all = (first.hits || []).slice();
+          const pages = Math.min(first.nbPages || 1, 5);
+          for (let p = 1; p < pages; p++) {
+            const more = await legacy('hitsPerPage=200&page=' + p + '&facetFilters=' + ff);
+            all.push(...(more.hits || []));
+          }
+          // Prefer the most recent year when the same course appears twice.
+          all.sort((a, b) => String(b.academicYear || '').localeCompare(String(a.academicYear || '')));
+          for (const h of all) {
+            const o = (h.options && h.options[0]) || {};
+            const al = o.entryReq_al;
+            if (!al || al === 'N/A' || !String(al).trim()) continue;
+            const text = String(al).trim();
+            if (h.courseId && !grades[h.courseId]) grades[h.courseId] = text;
+            const k = (h.university || '') + '|' +
+                      String(h.courseTitle || '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
+            if (!gradesByTitle[k]) gradesByTitle[k] = text;
+          }
+        } catch (e) { /* legacy index may not have this provider */ }
+      }));
+    }
+
+    return {
+      year: prev, tariffs: byId, byTitle: byTitle,
+      grades: grades, gradesByTitle: gradesByTitle,
+      gradesFrom: 'recent years',
+    };
   },
 
   // What an export would cost, before committing to it. One query.

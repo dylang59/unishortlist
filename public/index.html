@@ -219,11 +219,15 @@ async function search(){
       note.innerHTML = '<b>Heads up:</b> only '+total.toLocaleString()+' courses match — '+
         'this cycle or filter combination may not be fully published yet.';
     } else if(borrowed){
+      const grades = ROWS.filter(r=>r.tariffIsGrades).length;
       note.hidden = false;
-      note.innerHTML = '<b>Showing '+(Number(y)-1)+' entry requirements.</b> '+y+' tariffs are not '+
-        'published yet — universities list courses long before they finalise grades — so '+
-        borrowed.toLocaleString()+' of '+ROWS.length.toLocaleString()+' rows show last year\'s, '+
-        'marked <span class="tar prev">dimmed with a ~</span>. Treat them as a guide, not a promise.';
+      note.innerHTML = '<b>Showing previous entry requirements.</b> '+y+' grades are not published '+
+        'yet — universities list courses long before they finalise them — so '+
+        borrowed.toLocaleString()+' of '+ROWS.length.toLocaleString()+' rows show earlier data, '+
+        'marked <span class="tar prev">dimmed with a ~</span>. ' +
+        (grades ? 'Selective universities (UCL, Oxford, Cambridge) quote <b>A-level grades</b> rather '+
+                  'than tariff points, so '+grades.toLocaleString()+' rows show grades like AAB. ' : '') +
+        'Treat them as a guide, not a promise.';
     } else if(noTariff){
       note.hidden = false;
       note.innerHTML = '<b>No tariff data for '+(y||'this year')+' yet.</b> Universities publish '+
@@ -251,12 +255,17 @@ async function borrowTariffs(p){
       providers: providers,
     });
     const byId = d.tariffs || {}, byTitle = d.byTitle || {};
+    const gId = d.grades || {}, gTitle = d.gradesByTitle || {};
     const norm = s => String(s||'').toLowerCase().replace(/[^a-z0-9]+/g,' ').trim();
     let n = 0;
     for(const r of ROWS){
       if(r.tariff) continue;
-      const hit = byId[r.id] || byTitle[r.provider+'|'+norm(r.title)];
-      if(hit){ r.tariff = hit; r.tariffFrom = d.year; n++; }
+      const k = r.provider+'|'+norm(r.title);
+      const hit = byId[r.id] || byTitle[k];
+      if(hit){ r.tariff = hit; r.tariffFrom = d.year; n++; continue; }
+      // Selective universities publish A-level grades, not tariff points.
+      const g = gId[r.id] || gTitle[k];
+      if(g){ r.tariff = g; r.tariffFrom = d.gradesFrom || 'recent years'; r.tariffIsGrades = true; n++; }
     }
     return n;
   }catch(e){ return 0; }
@@ -278,9 +287,12 @@ function visible(){
     if(fp && (r.provider||'').toLowerCase() !== fp) return false;
     if(fs && !((r.subjects||[]).join(' ')+' '+(r.subjectText||'')+' '+(r.title||'')).toLowerCase().includes(fs)) return false;
     if(ft && !((r.town||'')+' '+(r.region||'')).toLowerCase().includes(ft)) return false;
-    // Only apply the tariff floor to rows that actually carry one. Cycles
-    // without published entry requirements would otherwise filter to nothing.
-    if(!isNaN(mt)){ const t=tariffNum(r.tariff); if(t != null && t<mt) return false; }
+    // Only apply the tariff floor to rows that actually carry tariff points.
+    // Cycles without published requirements, and grade values like "AAB",
+    // would otherwise be filtered out on a number they do not have.
+    if(!isNaN(mt) && !r.tariffIsGrades){
+      const t=tariffNum(r.tariff); if(t != null && t<mt) return false;
+    }
     return true;
   });
   const k=SORT.key, d=SORT.dir;
@@ -315,7 +327,7 @@ function render(){
       +   (r.degreeApprenticeship?'<span class="tag">apprenticeship</span>':'')+'</div></td>'
       + '<td class="prov">'+esc(r.provider)+'<div class="sub">'+esc(r.providerCode||'')+'</div></td>'
       + '<td class="mini">'+esc(r.town||'')+'<div class="sub">'+esc(r.region||'')+'</div></td>'
-      + '<td class="tar'+(r.tariffFrom?' prev':'')+'" title="'+(r.tariffFrom?('from '+r.tariffFrom+' entry'):'')+'">'+(r.tariffFrom?'~':'')+esc(r.tariff||'—')+'</td>'
+      + '<td class="tar'+(r.tariffFrom?' prev':'')+'" title="'+(r.tariffFrom?((r.tariffIsGrades?'A-level grades from ':'from ')+r.tariffFrom+(r.tariffIsGrades?'':' entry')):'')+'">'+(r.tariffFrom?'~':'')+esc(r.tariff||'—')+'</td>'
       + '<td class="mini">'+esc(r.award||'')+'</td>'
       + '<td class="mini">'+esc(r.duration||'')+'</td>'
       + '<td class="mini">'+esc(r.start||'')+'</td>'
@@ -351,7 +363,7 @@ function toggle(tr, r){
     }).join('');
   }
   if (!reqs) {
-    reqs = [['UCAS Tariff'+(r.tariffFrom?' ('+r.tariffFrom+' entry)':''),r.tariff],['A level',r.aLevel],['BTEC',r.btec],
+    reqs = [[(r.tariffIsGrades?'A level':'UCAS Tariff')+(r.tariffFrom?' ('+r.tariffFrom+')':''),r.tariff],['A level',r.aLevel],['BTEC',r.btec],
             ['IB',r.ib],['Scottish Higher',r.scottishHigher]]
       .filter(x=>x[1]).map(x=>'<div class="row"><b>'+x[0]+':</b> '+esc(x[1])+'</div>').join('');
   }
