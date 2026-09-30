@@ -17,3 +17,6 @@ exports/
 
 # Generated D1 snapshots
 snapshot-*.sql
+
+# Wrangler local state
+.wrangler/
