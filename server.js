@@ -23,8 +23,42 @@ const INDEX = process.env.UCAS_INDEX || 'd10prod_courses_profile';
 // not a row count. We want every option, so distinct is switched off.
 const PAGE_SIZE = 100; // hitsPerPage ceiling for this index
 
+// Every query costs UCAS an Algolia search operation, and a single "fetch
+// 1,000" click fans out to ten of them. Course data changes on the order of
+// days, so an in-process cache keeps repeat browsing — re-sorting, flipping
+// back to a previous filter, reloading the page — completely free.
+const CACHE_TTL_MS = Number(process.env.CACHE_TTL_MS || 30 * 60 * 1000);
+const CACHE_MAX = 500;
+const cache = new Map(); // params -> { at, data }
+let hits = 0, misses = 0;
+
+function cacheGet(key) {
+  const e = cache.get(key);
+  if (!e) return null;
+  if (Date.now() - e.at > CACHE_TTL_MS) { cache.delete(key); return null; }
+  // Refresh recency for the LRU eviction below.
+  cache.delete(key); cache.set(key, e);
+  return e.data;
+}
+
+function cacheSet(key, data) {
+  cache.set(key, { at: Date.now(), data: data });
+  while (cache.size > CACHE_MAX) cache.delete(cache.keys().next().value);
+}
+
+// Collapse identical in-flight requests so a burst of parallel page fetches
+// for the same params only goes out once.
+const inflight = new Map();
+
 function algolia(params) {
-  return fetch(`https://${ALGOLIA_APP}-dsn.algolia.net/1/indexes/${INDEX}/query`, {
+  const cached = cacheGet(params);
+  if (cached) { hits++; return Promise.resolve(cached); }
+
+  const pending = inflight.get(params);
+  if (pending) return pending;
+
+  misses++;
+  const p = fetch(`https://${ALGOLIA_APP}-dsn.algolia.net/1/indexes/${INDEX}/query`, {
     method: 'POST',
     headers: {
       'X-Algolia-API-Key': ALGOLIA_KEY,
@@ -35,8 +69,12 @@ function algolia(params) {
   }).then(async res => {
     const data = await res.json();
     if (data.message) throw new Error('Algolia: ' + data.message);
+    cacheSet(params, data);
     return data;
-  });
+  }).finally(() => inflight.delete(params));
+
+  inflight.set(params, p);
+  return p;
 }
 
 // Build an Algolia params string. facetFilters is an array of arrays:
@@ -226,6 +264,14 @@ const routes = {
       .sort((a, b) => a.name.localeCompare(b.name));
     return { providers: list };
   },
+
+  // How many upstream queries this session has actually cost.
+  '/api/stats': async () => ({
+    upstreamQueries: misses,
+    servedFromCache: hits,
+    cacheEntries: cache.size,
+    ttlMinutes: Math.round(CACHE_TTL_MS / 60000),
+  }),
 
   // Raw facet counts, for populating filter controls.
   '/api/facets': async (payload) => {
