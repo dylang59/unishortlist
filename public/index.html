@@ -84,6 +84,18 @@
   .menu .none{padding:10px;color:var(--dim);font-size:12.5px}
   .menu mark{background:rgba(91,157,255,.28);color:var(--text);border-radius:2px}
   .selected{border-color:var(--accent) !important}
+  /* Selected universities, shown as removable chips next to the picker */
+  .pchips{display:inline-flex;flex-wrap:wrap;gap:5px;align-items:center}
+  .pchip{background:#243044;border:1px solid #33506f;border-radius:99px;
+    padding:3px 6px 3px 10px;font-size:12px;display:inline-flex;align-items:center;gap:6px;
+    max-width:230px}
+  .pchip .nm{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .pchip .n{color:var(--dim);font-size:11px}
+  .pchip button{background:none;border:none;color:var(--dim);cursor:pointer;
+    padding:0 1px;font-size:14px;line-height:1}
+  .pchip button:hover{color:#ff7b72}
+  .menu .opt.picked{opacity:.45}
+  .menu .opt.picked .nm::after{content:' ✓';color:var(--accent2)}
 </style>
 </head>
 <body>
@@ -143,9 +155,10 @@
   <div class="combo">
     <input id="fprov" placeholder="any university…" size="22" autocomplete="off"
            role="combobox" aria-expanded="false" aria-autocomplete="list" aria-controls="provlist">
-    <button id="fprovClear" class="clear" title="Clear" hidden>×</button>
+    <button id="fprovClear" class="clear" title="Clear all" hidden>×</button>
     <div id="provlist" class="menu" role="listbox" hidden></div>
   </div>
+  <span id="provChips" class="pchips"></span>
   <input id="fsub"  placeholder="subject…" size="14">
   <input id="ftown" placeholder="town / region…" size="14">
   <label>Min tariff</label>
@@ -182,7 +195,9 @@ function payload(){
   if($('#qual').value) p.qualificationLevels = [$('#qual').value];
   if($('#mode').value) p.studyModes = [$('#mode').value];
   if($('#region').value) p.regions = [$('#region').value];
-  if(PROVIDER) p.providers = [PROVIDER.value];
+  // Several universities are ORed together by the API, so a shortlist comes
+  // back as one comparable table.
+  if(PICKED.length) p.providers = PICKED.map(x=>x.value);
   return p;
 }
 
@@ -278,9 +293,9 @@ function tariffNum(t){
 }
 
 function visible(){
-  // PROVIDER holds a picked provider; the text box is only a search field for
-  // the picker, so filter on the selection when there is one.
-  const fp = PROVIDER ? PROVIDER.name.toLowerCase() : '';
+  // The shortlist is applied server-side, so no client-side provider filter
+  // is needed; the text box is only a search field for the picker.
+  const fp = '';
   const fs=$('#fsub').value.toLowerCase(),
         ft=$('#ftown').value.toLowerCase(), mt=parseInt($('#ftar').value,10);
   let rows = ROWS.filter(r=>{
@@ -404,12 +419,24 @@ function csv(){
 // "Manchester Metropolitan University (MMU)"), so this is a searchable list
 // rather than a text field. The server pairs each display name with the value
 // the API's provider filter actually matches.
-let PROVIDERS = [], PROVIDER = null, ACTIVE = -1;
+// PICKED holds every selected university; the API ORs them together, so a
+// shortlist can be compared side by side in one table.
+let PROVIDERS = [], PICKED = [], ACTIVE = -1;
 
 async function loadProviders(){
   try{
-    const d = await post('/api/providers', {studyLevel:'Undergraduate'});
+    // Scope the list to the selected cycle, so counts match what a search
+    // will actually return and providers absent that year do not appear.
+    const d = await post('/api/providers', {
+      studyLevel: 'Undergraduate',
+      academicYearId: $('#year').value || undefined,
+    });
     PROVIDERS = d.providers || [];
+    // Drop any selection that no longer exists in this cycle.
+    const live = new Set(PROVIDERS.map(p=>p.name));
+    const before = PICKED.length;
+    PICKED = PICKED.filter(p=>live.has(p.name));
+    if(PICKED.length !== before) renderChips();
   }catch(e){ /* picker degrades to a plain filter box */ }
 }
 
@@ -444,11 +471,13 @@ function openMenu(term){
   if(!list.length){
     box.innerHTML = '<div class="none">No university matches “'+esc(term)+'”.</div>';
   } else {
+    const picked = new Set(PICKED.map(x=>x.name));
     box.innerHTML = list.map((p,i)=>{
       // Show the alias only when it adds something (abbreviations etc).
       const extra = p.value !== p.name
         ? '<span class="alias">'+markup(p.value, term)+'</span>' : '';
-      return '<div class="opt" role="option" data-i="'+i+'">'
+      return '<div class="opt'+(picked.has(p.name)?' picked':'')+'" role="option" '+
+             'aria-selected="'+picked.has(p.name)+'" data-i="'+i+'">'
         + '<span class="nm">'+markup(p.name, term)+extra+'</span>'
         + '<span class="ct">'+p.count.toLocaleString()+'</span></div>';
     }).join('');
@@ -467,16 +496,38 @@ function closeMenu(){
   ACTIVE = -1;
 }
 
+function renderChips(){
+  const box = $('#provChips');
+  box.innerHTML = PICKED.map((p,i)=>
+    '<span class="pchip"><span class="nm">'+esc(p.name)+'</span>'+
+    '<span class="n">'+p.count.toLocaleString()+'</span>'+
+    '<button data-i="'+i+'" title="Remove">×</button></span>').join('');
+  box.querySelectorAll('button').forEach(b=>{
+    b.onclick = ()=>{ PICKED.splice(+b.dataset.i,1); renderChips(); search(); };
+  });
+  $('#fprov').classList.toggle('selected', PICKED.length>0);
+  $('#fprovClear').hidden = PICKED.length===0;
+  $('#fprov').placeholder = PICKED.length ? 'add another…' : 'any university…';
+}
+
+// Toggle a university in or out of the shortlist.
 function choose(p){
-  PROVIDER = p || null;
-  const inp = $('#fprov');
-  inp.value = p ? p.name : '';
-  inp.classList.toggle('selected', !!p);
-  $('#fprovClear').hidden = !p;
+  if(!p) return;
+  const at = PICKED.findIndex(x=>x.name===p.name);
+  if(at >= 0) PICKED.splice(at,1); else PICKED.push(p);
+  $('#fprov').value = '';
+  renderChips();
   closeMenu();
-  // Picking a university changes the query scope, not just the view: re-run
-  // the search so we get that institution's full catalogue back.
-  if(ROWS.length || p) search();
+  // Changing the shortlist changes the query scope, not just the view, so
+  // re-run rather than filtering whatever happened to be loaded.
+  search();
+}
+
+function clearProviders(){
+  PICKED = [];
+  $('#fprov').value = '';
+  renderChips();
+  search();
 }
 
 function moveActive(delta){
@@ -489,12 +540,8 @@ function moveActive(delta){
   if(el) el.scrollIntoView({block:'nearest'});
 }
 
-$('#fprov').addEventListener('focus', e=>openMenu(PROVIDER ? '' : e.target.value));
-$('#fprov').addEventListener('input', e=>{
-  // Typing after a selection clears it — the box is a search field again.
-  if(PROVIDER){ PROVIDER=null; e.target.classList.remove('selected'); $('#fprovClear').hidden=true; if(ROWS.length) render(); }
-  openMenu(e.target.value);
-});
+$('#fprov').addEventListener('focus', e=>openMenu(e.target.value));
+$('#fprov').addEventListener('input', e=>openMenu(e.target.value));
 $('#fprov').addEventListener('blur', ()=>setTimeout(closeMenu, 120));
 $('#fprov').addEventListener('keydown', e=>{
   const open = !$('#provlist').hidden;
@@ -506,8 +553,12 @@ $('#fprov').addEventListener('keydown', e=>{
     else if(open && list.length===1){ e.preventDefault(); choose(list[0]); }
   }
   else if(e.key==='Escape'){ closeMenu(); }
+  // Backspace on an empty box removes the last chip, as in any tag input.
+  else if(e.key==='Backspace' && !$('#fprov').value && PICKED.length){
+    PICKED.pop(); renderChips(); search();
+  }
 });
-$('#fprovClear').onclick = ()=>{ choose(null); $('#fprov').focus(); };
+$('#fprovClear').onclick = ()=>{ clearProviders(); $('#fprov').focus(); };
 
 // When served from a snapshot (the deployed Worker), say how fresh it is so
 // nobody mistakes it for live UCAS data.
@@ -534,6 +585,11 @@ $('#go').onclick = search;
 $('#q').addEventListener('keydown', e=>{ if(e.key==='Enter') search(); });
 ['#fsub','#ftown','#ftar'].forEach(s=>$(s).addEventListener('input', ()=>{ if(ROWS.length) render(); }));
 $('#csv').onclick = csv;
+// Reload the picker when the cycle changes: provider counts differ per year,
+// and some institutions appear in one cycle but not another.
+$('#year').addEventListener('change', loadProviders);
+
+renderChips();
 loadProviders();
 </script>
 </body>

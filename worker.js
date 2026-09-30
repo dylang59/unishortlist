@@ -89,9 +89,17 @@ async function handleSearch(env, p) {
   const countRow = await env.DB.prepare('SELECT COUNT(*) AS n FROM courses ' + w.sql)
     .bind(...w.args).first();
 
-  const rows = await env.DB.prepare(
-    'SELECT * FROM courses ' + w.sql + ' ORDER BY provider_sort, title LIMIT ?'
-  ).bind(...w.args, limit).all();
+  // With a shortlist of universities, a plain alphabetical LIMIT can cut the
+  // last ones off entirely — UCL sorts last, so it looked like it had no
+  // courses. Interleave instead: take a fair share from each selected
+  // provider so every one of them is represented.
+  const picked = (p.providers || []).filter(Boolean);
+  const sql = picked.length > 1
+    ? 'SELECT * FROM (SELECT *, ROW_NUMBER() OVER (PARTITION BY provider ORDER BY title) AS rn ' +
+      'FROM courses ' + w.sql + ') ORDER BY rn, provider_sort, title LIMIT ?'
+    : 'SELECT * FROM courses ' + w.sql + ' ORDER BY provider_sort, title LIMIT ?';
+
+  const rows = await env.DB.prepare(sql).bind(...w.args, limit).all();
 
   return {
     total: countRow ? countRow.n : 0,

@@ -266,6 +266,47 @@ const routes = {
     const want = Math.min(payload.limit || 1000, 5000);
     const pages = Math.ceil(want / PAGE_SIZE);
 
+    // A shortlist of universities is fetched one at a time and interleaved.
+    // Querying them together and truncating at the limit drops whichever
+    // sorts last — UCL, alphabetically — so it looks like it has no courses.
+    const picked = (payload.providers || []).filter(Boolean);
+    if (picked.length > 1) {
+      const share = Math.max(PAGE_SIZE, Math.ceil(want / picked.length));
+      const perProvider = await Promise.all(picked.map(async name => {
+        const q = Object.assign({}, payload, { providers: [name] });
+        const rows = [];
+        try {
+          const f = await algolia(buildParams(q, 'hitsPerPage=' + PAGE_SIZE + '&page=0'));
+          rows.push(...(f.hits || []).map(flatten));
+          const n = Math.min(Math.ceil(share / PAGE_SIZE), f.nbPages, 10);
+          for (let p = 1; p < n; p++) {
+            const d = await algolia(buildParams(q, 'hitsPerPage=' + PAGE_SIZE + '&page=' + p));
+            rows.push(...(d.hits || []).map(flatten));
+          }
+        } catch (e) { /* one provider failing should not sink the search */ }
+        return rows;
+      }));
+
+      // Round-robin so the table opens with every university visible.
+      const merged = [];
+      const depth = Math.max(...perProvider.map(r => r.length), 0);
+      for (let i = 0; i < depth && merged.length < want; i++) {
+        for (const rows of perProvider) {
+          if (rows[i] && merged.length < want) merged.push(rows[i]);
+        }
+      }
+
+      const counted = await algolia(buildParams(payload,
+        'hitsPerPage=0&maxValuesPerFacet=500&facets=' + encodeURIComponent(FACET_LIST)));
+      return {
+        total: counted.nbHits,
+        fetched: merged.length,
+        truncated: merged.length < counted.nbHits,
+        courses: merged,
+        facets: facetsFrom(counted),
+      };
+    }
+
     const firstParams = buildParams(payload,
       'hitsPerPage=' + PAGE_SIZE + '&page=0' +
       '&maxValuesPerFacet=500&facets=' + encodeURIComponent(FACET_LIST));
