@@ -1,0 +1,447 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>UCAS Course Search</title>
+<style>
+  :root{
+    --bg:#0f1115; --panel:#161a21; --panel2:#1b2029; --line:#262d39;
+    --text:#e6e9ef; --dim:#98a2b3; --accent:#5b9dff; --accent2:#2bd4a4;
+    --warn:#ffb020; --radius:8px;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--text);
+    font:14px/1.45 ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+  header{padding:14px 18px;border-bottom:1px solid var(--line);
+    display:flex;gap:14px;align-items:center;flex-wrap:wrap;
+    position:sticky;top:0;background:var(--bg);z-index:20}
+  h1{font-size:15px;margin:0;font-weight:650;letter-spacing:.2px;white-space:nowrap}
+  h1 span{color:var(--accent)}
+  .grow{flex:1}
+  input,select,button{font:inherit;color:var(--text);background:var(--panel2);
+    border:1px solid var(--line);border-radius:var(--radius);padding:7px 10px;outline:none}
+  input:focus,select:focus{border-color:var(--accent)}
+  button{cursor:pointer;background:var(--panel2)}
+  button:hover{border-color:var(--accent)}
+  button.primary{background:var(--accent);color:#04101f;border-color:var(--accent);font-weight:650}
+  button.primary:disabled{opacity:.5;cursor:default}
+  #q{min-width:230px}
+  .bar{display:flex;gap:8px;align-items:center;flex-wrap:wrap;
+    padding:10px 18px;border-bottom:1px solid var(--line);background:var(--panel)}
+  .bar label{color:var(--dim);font-size:12px;margin-right:-4px}
+  .chip{background:var(--panel2);border:1px solid var(--line);border-radius:99px;
+    padding:3px 10px;font-size:12px;color:var(--dim);white-space:nowrap}
+  .chip b{color:var(--text)}
+  .note{padding:9px 18px;background:#2a2113;border-bottom:1px solid #4a3a1b;
+    color:#f0cf95;font-size:12.5px}
+  .note b{color:var(--warn)}
+  main{padding:0 0 60px}
+  table{width:100%;border-collapse:collapse}
+  thead th{position:sticky;top:0;background:var(--panel);text-align:left;
+    font-size:11.5px;text-transform:uppercase;letter-spacing:.5px;color:var(--dim);
+    padding:9px 10px;border-bottom:1px solid var(--line);cursor:pointer;user-select:none;
+    white-space:nowrap}
+  thead th:hover{color:var(--text)}
+  thead th.sorted{color:var(--accent)}
+  tbody td{padding:9px 10px;border-bottom:1px solid var(--line);vertical-align:top}
+  tbody tr:hover{background:var(--panel)}
+  .ttl{font-weight:600}
+  .sub{color:var(--dim);font-size:12px;margin-top:2px}
+  .prov{white-space:nowrap}
+  .tag{display:inline-block;background:var(--panel2);border:1px solid var(--line);
+    border-radius:4px;padding:1px 6px;font-size:11px;color:var(--dim);margin:1px 3px 1px 0}
+  .tar{color:var(--accent2);font-weight:650;white-space:nowrap}
+  a{color:var(--accent);text-decoration:none}
+  a:hover{text-decoration:underline}
+  .empty{padding:40px 18px;color:var(--dim);text-align:center}
+  .exp{background:var(--panel2)}
+  .exp td{padding:14px 16px;color:var(--dim);font-size:13px}
+  .exp .row{margin:6px 0}
+  .exp b{color:var(--text)}
+  .load{padding:14px 18px;color:var(--dim)}
+  .prog{height:3px;background:var(--accent);width:0;transition:width .25s;
+    position:fixed;top:0;left:0;z-index:50}
+  td.mini{font-size:12px;color:var(--dim);white-space:nowrap}
+
+  /* Provider picker */
+  .combo{position:relative;display:inline-block}
+  .combo input{padding-right:24px}
+  .combo .clear{position:absolute;right:2px;top:50%;transform:translateY(-50%);
+    background:none;border:none;color:var(--dim);font-size:16px;line-height:1;
+    padding:2px 6px;cursor:pointer}
+  .combo .clear:hover{color:var(--text)}
+  .menu{position:absolute;top:calc(100% + 4px);left:0;z-index:40;
+    min-width:340px;max-height:320px;overflow-y:auto;
+    background:var(--panel2);border:1px solid var(--line);border-radius:var(--radius);
+    box-shadow:0 10px 30px rgba(0,0,0,.45)}
+  .menu .opt{padding:7px 10px;cursor:pointer;display:flex;gap:10px;align-items:baseline}
+  .menu .opt:hover,.menu .opt.active{background:#243044}
+  .menu .opt .nm{flex:1;min-width:0}
+  .menu .opt .ct{color:var(--dim);font-size:11.5px;white-space:nowrap}
+  .menu .opt .alias{display:block;color:var(--dim);font-size:11px;margin-top:1px}
+  .menu .none{padding:10px;color:var(--dim);font-size:12.5px}
+  .menu mark{background:rgba(91,157,255,.28);color:var(--text);border-radius:2px}
+  .selected{border-color:var(--accent) !important}
+</style>
+</head>
+<body>
+<div class="prog" id="prog"></div>
+
+<header>
+  <h1>UCAS <span>fast search</span></h1>
+  <input id="q" placeholder="Course keyword (e.g. physics, law)" autocomplete="off">
+  <select id="year">
+    <option value="2026">Sept 2026 entry</option>
+    <option value="2027">Sept 2027 entry</option>
+    <option value="">Any year</option>
+  </select>
+  <select id="qual">
+    <option value="">Any qualification</option>
+    <option>Bachelor degrees (with or without Honours)</option>
+    <option>Foundation degrees</option>
+    <option>HNC or CertHE</option>
+    <option>HND or DipHE</option>
+  </select>
+  <select id="mode">
+    <option value="">Any mode</option>
+    <option>Full-time</option>
+    <option>Part-time</option>
+    <option>Distance learning</option>
+  </select>
+  <select id="depth">
+    <option value="20">Fetch 200</option>
+    <option value="40">Fetch 400</option>
+    <option value="60">Fetch 600</option>
+    <option value="10">Fetch 100</option>
+  </select>
+  <button class="primary" id="go">Search</button>
+</header>
+
+<div class="bar">
+  <label>Refine</label>
+  <div class="combo">
+    <input id="fprov" placeholder="any university…" size="22" autocomplete="off"
+           role="combobox" aria-expanded="false" aria-autocomplete="list" aria-controls="provlist">
+    <button id="fprovClear" class="clear" title="Clear" hidden>×</button>
+    <div id="provlist" class="menu" role="listbox" hidden></div>
+  </div>
+  <input id="fsub"  placeholder="subject…" size="14">
+  <input id="ftown" placeholder="town / region…" size="14">
+  <label>Min tariff</label>
+  <input id="ftar" type="number" placeholder="0" size="4" style="width:80px">
+  <span class="grow"></span>
+  <span class="chip" id="cStat">idle</span>
+  <button id="csv">Export CSV</button>
+</div>
+
+<div class="note" id="note" hidden></div>
+<main><div id="out" class="empty">Enter a keyword and hit Search.</div></main>
+
+<script>
+const $ = s => document.querySelector(s);
+let ROWS = [], SORT = { key:'provider', dir:1 };
+
+const YEAR_STARTS = {
+  // UCAS filters by concrete start month, not academic year.
+  '2026': ['09/2026','10/2026'],
+  '2027': ['09/2027','10/2027'],
+};
+
+function progress(p){ $('#prog').style.width = p + '%'; if(p>=100) setTimeout(()=>$('#prog').style.width=0,400); }
+
+async function post(url, body){
+  const r = await fetch(url, {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
+  if(!r.ok) throw new Error((await r.json().catch(()=>({}))).error || ('HTTP '+r.status));
+  return r.json();
+}
+
+function payload(){
+  const p = { schemes:['UCAS Undergraduate'] };
+  const term = $('#q').value.trim();
+  if(term) p.searchTerm = term;
+  const y = $('#year').value;
+  if(y && YEAR_STARTS[y]) p.startDates = YEAR_STARTS[y];
+  if($('#qual').value) p.qualifications = [$('#qual').value];
+  if($('#mode').value) p.attendanceTypes = [$('#mode').value];
+  // Push a picked university upstream so we search its whole catalogue
+  // rather than filtering whatever happened to load. Note this needs the
+  // alias value, not the display name.
+  if(PROVIDER) p.providers = [PROVIDER.value];
+  return p;
+}
+
+async function search(){
+  const btn = $('#go'); btn.disabled = true;
+  $('#cStat').textContent = 'searching…';
+  $('#out').innerHTML = '<div class="load">Fetching from UCAS…</div>';
+  progress(20);
+  try{
+    const p = payload();
+    const pages = parseInt($('#depth').value,10);
+    const data = await post('/api/bulk', Object.assign({}, p, {pages:pages, budgetMs:30000}));
+    progress(80);
+    ROWS = data.courses || [];
+    const total = data.total;
+    $('#cStat').innerHTML = '<b>'+ROWS.length+'</b> loaded of <b>'+(total==null?'?':total.toLocaleString())+'</b> matches'
+      + (data.timedOut ? ' <span style="color:var(--warn)">(partial — narrow the search for full coverage)</span>' : '');
+
+    // Warn when the requested cycle simply isn't published by UCAS yet.
+    const y = $('#year').value;
+    const note = $('#note');
+    if(y === '2027' && ROWS.length < 50){
+      note.hidden = false;
+      note.innerHTML = '<b>Heads up:</b> UCAS has published very few Sept 2027 courses so far ('+ROWS.length+
+        ' found) — it is still serving 2026 as the live cycle. Search <b>2026</b> to explore, since course '+
+        'content and entry requirements mostly carry over year to year. Worth re-checking 2027 periodically: '+
+        'this count is the ground truth for whether the cycle has opened.';
+    } else { note.hidden = true; }
+
+    render();
+  }catch(e){
+    $('#out').innerHTML = '<div class="empty">Error: '+e.message+'</div>';
+    $('#cStat').textContent = 'error';
+  }finally{ btn.disabled=false; progress(100); }
+}
+
+function tariffNum(t){
+  if(!t) return null;
+  const m = String(t).match(/\d+/g);
+  return m ? Math.min.apply(null, m.map(Number)) : null;
+}
+
+function visible(){
+  // PROVIDER holds a picked provider; the text box is only a search field for
+  // the picker, so filter on the selection when there is one.
+  const fp = PROVIDER ? PROVIDER.name.toLowerCase() : '';
+  const fs=$('#fsub').value.toLowerCase(),
+        ft=$('#ftown').value.toLowerCase(), mt=parseInt($('#ftar').value,10);
+  let rows = ROWS.filter(r=>{
+    if(fp && (r.provider||'').toLowerCase() !== fp) return false;
+    if(fs && !((r.subjects||[]).join(' ')+' '+(r.title||'')).toLowerCase().includes(fs)) return false;
+    if(ft && !((r.town||'')+' '+(r.region||'')).toLowerCase().includes(ft)) return false;
+    if(!isNaN(mt)){ const t=tariffNum(r.tariff); if(t==null || t<mt) return false; }
+    return true;
+  });
+  const k=SORT.key, d=SORT.dir;
+  rows.sort((a,b)=>{
+    let x,y;
+    if(k==='tariff'){ x=tariffNum(a.tariff); y=tariffNum(b.tariff);
+      if(x==null) return 1; if(y==null) return -1; return (x-y)*d; }
+    x=(a[k]||'').toString().toLowerCase(); y=(b[k]||'').toString().toLowerCase();
+    return x<y?-d:x>y?d:0;
+  });
+  return rows;
+}
+
+const esc = s => String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+
+function render(){
+  const rows = visible();
+  if(!rows.length){ $('#out').innerHTML='<div class="empty">No courses match those filters.</div>'; return; }
+  const cols = [['title','Course'],['provider','University'],['town','Location'],
+                ['tariff','Tariff'],['award','Award'],['duration','Len'],['start','Start']];
+  let h = '<table><thead><tr>';
+  cols.forEach(([k,label])=>{
+    h += '<th data-k="'+k+'" class="'+(SORT.key===k?'sorted':'')+'">'+label+
+         (SORT.key===k?(SORT.dir>0?' ▲':' ▼'):'')+'</th>';
+  });
+  h += '</tr></thead><tbody>';
+  rows.forEach((r,i)=>{
+    h += '<tr data-i="'+i+'">'
+      + '<td><div class="ttl">'+esc(r.title)+'</div>'
+      +   '<div class="sub">'+(r.applicationCode?'<span class="tag">'+esc(r.applicationCode)+'</span>':'')
+      +   (r.subjects||[]).slice(0,3).map(s=>'<span class="tag">'+esc(s)+'</span>').join('')
+      +   (r.degreeApprenticeship?'<span class="tag">apprenticeship</span>':'')+'</div></td>'
+      + '<td class="prov">'+esc(r.provider)+'<div class="sub">'+esc(r.providerCode||'')+'</div></td>'
+      + '<td class="mini">'+esc(r.town||'')+'<div class="sub">'+esc(r.region||'')+'</div></td>'
+      + '<td class="tar">'+esc(r.tariff||'—')+'</td>'
+      + '<td class="mini">'+esc(r.award||'')+'</td>'
+      + '<td class="mini">'+esc(r.duration||'')+'</td>'
+      + '<td class="mini">'+esc(r.start||'')+'</td>'
+      + '</tr>';
+  });
+  h += '</tbody></table>';
+  $('#out').innerHTML = h;
+
+  $('#out').querySelectorAll('thead th').forEach(th=>{
+    th.onclick = ()=>{ const k=th.dataset.k;
+      if(SORT.key===k) SORT.dir*=-1; else {SORT.key=k;SORT.dir=1;}
+      render(); };
+  });
+  $('#out').querySelectorAll('tbody tr').forEach(tr=>{
+    tr.onclick = ()=>toggle(tr, rows[+tr.dataset.i]);
+  });
+}
+
+function toggle(tr, r){
+  const nx = tr.nextElementSibling;
+  if(nx && nx.classList.contains('exp')){ nx.remove(); return; }
+  const links = [];
+  if(r.courseUrl) links.push('<a href="'+esc(r.courseUrl)+'" target="_blank" rel="noopener">Course page</a>');
+  if(r.ucasUrl)   links.push('<a href="'+esc(r.ucasUrl)+'" target="_blank" rel="noopener">UCAS listing</a>');
+  // Prefer the full entry-requirement list when the server supplies it;
+  // fall back to the handful of named qualifications otherwise.
+  let reqs = '';
+  if (Array.isArray(r.entryRequirements) && r.entryRequirements.length) {
+    reqs = r.entryRequirements.map(q=>{
+      const offer = (q.summary && q.summary.offer) ? q.summary.offer.trim() : '';
+      if(!offer) return '';
+      return '<div class="row"><b>'+esc(q.qualificationName)+':</b> '+esc(offer)+'</div>';
+    }).join('');
+  }
+  if (!reqs) {
+    reqs = [['UCAS Tariff',r.tariff],['A level',r.aLevel],['BTEC',r.btec],
+            ['IB',r.ib],['Scottish Higher',r.scottishHigher]]
+      .filter(x=>x[1]).map(x=>'<div class="row"><b>'+x[0]+':</b> '+esc(x[1])+'</div>').join('');
+  }
+  // The server sends the full summary; clamp it here, where it is a display
+  // concern, and keep the untruncated text available for CSV export.
+  const sum = r.summary
+    ? (r.summary.length > 600 ? r.summary.slice(0, 600).trim() + '…' : r.summary)
+    : '';
+  const td = document.createElement('tr');
+  td.className='exp';
+  td.innerHTML = '<td colspan="7">'
+    + (sum?'<div class="row">'+esc(sum)+'</div>':'')
+    + (reqs||'')
+    + '<div class="row"><b>Mode:</b> '+esc(r.studyMode||'—')+' &nbsp; <b>Dept:</b> '+esc(r.department||'—')
+    +   ' &nbsp; <b>Options:</b> '+r.optionCount+' &nbsp; <b>Year:</b> '+esc(r.year)+'</div>'
+    + '<div class="row">'+links.join(' &nbsp;·&nbsp; ')+'</div></td>';
+  tr.after(td);
+}
+
+function csv(){
+  const rows = visible();
+  if(!rows.length) return;
+  const cols = ['title','provider','providerCode','applicationCode','town','region','country',
+                'tariff','aLevel','btec','ib','award','duration','studyMode','start','year','courseUrl'];
+  const out = [cols.join(',')].concat(rows.map(r=>cols.map(c=>{
+    const v = r[c]==null?'':String(r[c]).replace(/"/g,'""').replace(/\s+/g,' ');
+    return '"'+v+'"';
+  }).join(',')));
+  const blob = new Blob([out.join('\n')],{type:'text/csv'});
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'ucas-courses.csv';
+  a.click();
+}
+
+// ---- Provider picker -------------------------------------------------------
+// UCAS institution names are not guessable ("UCL (University College London)",
+// "Manchester Metropolitan University (MMU)"), so this is a searchable list
+// rather than a text field. The server pairs each display name with the value
+// the API's provider filter actually matches.
+let PROVIDERS = [], PROVIDER = null, ACTIVE = -1;
+
+async function loadProviders(){
+  try{
+    const d = await post('/api/providers', {schemes:['UCAS Undergraduate']});
+    PROVIDERS = d.providers || [];
+  }catch(e){ /* picker degrades to a plain filter box */ }
+}
+
+const escRe = s => s.replace(/[.*+?^${}()|[\]\\]/g,'\\$&');
+
+function markup(text, term){
+  if(!term) return esc(text);
+  const re = new RegExp('('+escRe(term)+')','ig');
+  return esc(text).replace(re, '<mark>$1</mark>');
+}
+
+function matches(term){
+  if(!PROVIDERS.length) return [];
+  const t = term.trim().toLowerCase();
+  if(!t) return PROVIDERS.slice(0, 80);
+  // Search display name AND alias, so "MMU" or "LSBU" finds the institution.
+  const hits = PROVIDERS.filter(p =>
+    p.name.toLowerCase().includes(t) || p.value.toLowerCase().includes(t));
+  // Prefer names that start with the term, then shorter names.
+  hits.sort((a,b)=>{
+    const as=a.name.toLowerCase().startsWith(t), bs=b.name.toLowerCase().startsWith(t);
+    if(as!==bs) return as?-1:1;
+    return a.name.length-b.name.length;
+  });
+  return hits.slice(0, 80);
+}
+
+function openMenu(term){
+  const list = matches(term);
+  const box = $('#provlist');
+  ACTIVE = -1;
+  if(!list.length){
+    box.innerHTML = '<div class="none">No university matches “'+esc(term)+'”.</div>';
+  } else {
+    box.innerHTML = list.map((p,i)=>{
+      // Show the alias only when it adds something (abbreviations etc).
+      const extra = p.value !== p.name
+        ? '<span class="alias">'+markup(p.value, term)+'</span>' : '';
+      return '<div class="opt" role="option" data-i="'+i+'">'
+        + '<span class="nm">'+markup(p.name, term)+extra+'</span>'
+        + '<span class="ct">'+p.count.toLocaleString()+'</span></div>';
+    }).join('');
+    box.querySelectorAll('.opt').forEach(el=>{
+      el.onmousedown = e => { e.preventDefault(); choose(list[+el.dataset.i]); };
+    });
+  }
+  box.hidden = false;
+  $('#fprov').setAttribute('aria-expanded','true');
+  box._list = list;
+}
+
+function closeMenu(){
+  $('#provlist').hidden = true;
+  $('#fprov').setAttribute('aria-expanded','false');
+  ACTIVE = -1;
+}
+
+function choose(p){
+  PROVIDER = p || null;
+  const inp = $('#fprov');
+  inp.value = p ? p.name : '';
+  inp.classList.toggle('selected', !!p);
+  $('#fprovClear').hidden = !p;
+  closeMenu();
+  // Picking a university changes the query scope, not just the view: re-run
+  // the search so we get that institution's full catalogue back.
+  if(ROWS.length || p) search();
+}
+
+function moveActive(delta){
+  const box = $('#provlist');
+  const opts = box.querySelectorAll('.opt');
+  if(!opts.length) return;
+  ACTIVE = (ACTIVE + delta + opts.length) % opts.length;
+  opts.forEach((el,i)=>el.classList.toggle('active', i===ACTIVE));
+  const el = opts[ACTIVE];
+  if(el) el.scrollIntoView({block:'nearest'});
+}
+
+$('#fprov').addEventListener('focus', e=>openMenu(PROVIDER ? '' : e.target.value));
+$('#fprov').addEventListener('input', e=>{
+  // Typing after a selection clears it — the box is a search field again.
+  if(PROVIDER){ PROVIDER=null; e.target.classList.remove('selected'); $('#fprovClear').hidden=true; if(ROWS.length) render(); }
+  openMenu(e.target.value);
+});
+$('#fprov').addEventListener('blur', ()=>setTimeout(closeMenu, 120));
+$('#fprov').addEventListener('keydown', e=>{
+  const open = !$('#provlist').hidden;
+  if(e.key==='ArrowDown'){ e.preventDefault(); if(!open) openMenu($('#fprov').value); else moveActive(1); }
+  else if(e.key==='ArrowUp'){ e.preventDefault(); moveActive(-1); }
+  else if(e.key==='Enter'){
+    const list = $('#provlist')._list || [];
+    if(open && ACTIVE>=0 && list[ACTIVE]){ e.preventDefault(); choose(list[ACTIVE]); }
+    else if(open && list.length===1){ e.preventDefault(); choose(list[0]); }
+  }
+  else if(e.key==='Escape'){ closeMenu(); }
+});
+$('#fprovClear').onclick = ()=>{ choose(null); $('#fprov').focus(); };
+
+$('#go').onclick = search;
+$('#q').addEventListener('keydown', e=>{ if(e.key==='Enter') search(); });
+['#fsub','#ftown','#ftar'].forEach(s=>$(s).addEventListener('input', ()=>{ if(ROWS.length) render(); }));
+$('#csv').onclick = csv;
+loadProviders();
+</script>
+</body>
+</html>

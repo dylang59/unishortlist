@@ -1,0 +1,15 @@
+{
+  "name": "ucasbuster",
+  "version": "1.0.0",
+  "private": true,
+  "description": "A faster, sortable front-end for UCAS undergraduate course search",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "check-2027": "node check-2027.js"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "license": "MIT"
+}

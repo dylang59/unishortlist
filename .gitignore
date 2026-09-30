@@ -1,0 +1,12 @@
+node_modules/
+*.log
+.env
+.env.*
+.DS_Store
+Thumbs.db
+
+# Local scratch: cached API dumps and CSV exports
+*.csv
+tmp/
+scratch/
+server.dbg.js
