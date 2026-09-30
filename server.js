@@ -11,6 +11,7 @@
 const http = require('http');
 const fs = require('fs');
 const path = require('path');
+const exporter = require('./export');
 
 const PORT = process.env.PORT || 8787;
 
@@ -265,6 +266,28 @@ const routes = {
     return { providers: list };
   },
 
+  // What an export would cost, before committing to it. One query.
+  '/api/export/plan': async (payload) => {
+    const opts = {
+      year: payload.academicYearId,
+      level: payload.studyLevel,
+      query: payload.searchTerm,
+    };
+    const info = await exporter.listProviders(opts);
+    let list = info.providers;
+    if (payload.providers && payload.providers.length) {
+      const want = payload.providers.map(s => String(s).toLowerCase());
+      list = list.filter(p => want.some(w => p.name.toLowerCase() === w));
+    }
+    const rows = list.reduce((s, p) => s + p.count, 0);
+    return {
+      providers: list.length,
+      rows: rows,
+      queries: list.reduce((s, p) => s + Math.ceil(p.count / 100), 0) + 1,
+      largest: list.slice(0, 5),
+    };
+  },
+
   // How many upstream queries this session has actually cost.
   '/api/stats': async () => ({
     upstreamQueries: misses,
@@ -282,8 +305,81 @@ const routes = {
   },
 };
 
+// Exports are written here and served back as a download link, so a large
+// pull never has to travel through the page as one giant response.
+const EXPORT_DIR = path.join(__dirname, 'exports');
+
+// Streaming export. Emits newline-delimited progress events as it goes, so a
+// multi-minute pull shows real progress instead of hanging.
+async function runExportStream(req, res, payload) {
+  res.writeHead(200, {
+    'Content-Type': 'application/x-ndjson',
+    'Cache-Control': 'no-cache',
+    'X-Accel-Buffering': 'no',
+  });
+  const send = ev => res.write(JSON.stringify(ev) + '\n');
+
+  try {
+    if (!fs.existsSync(EXPORT_DIR)) fs.mkdirSync(EXPORT_DIR, { recursive: true });
+    const opts = {
+      year: payload.academicYearId,
+      level: payload.studyLevel,
+      query: payload.searchTerm,
+      providers: payload.providers,
+      pauseMs: 120,
+      exact: true,
+    };
+    const result = await exporter.runExport(opts, ev => {
+      if (ev.phase === 'progress' || ev.phase === 'warn') send(ev);
+    });
+
+    const csv = payload.format === 'csv';
+    const stamp = new Date().toISOString().slice(0, 10);
+    const file = 'ucas-' + (opts.year || 'all') + '-' +
+                 String(opts.level || 'all').toLowerCase() + '-' + stamp +
+                 (csv ? '.csv' : '.ndjson');
+    const full = path.join(EXPORT_DIR, file);
+
+    if (csv) {
+      fs.writeFileSync(full, exporter.CSV_COLS.join(',') + '\n' +
+        result.rows.map(exporter.toCsvRow).join('\n') + '\n');
+    } else {
+      fs.writeFileSync(full, result.rows.map(r => JSON.stringify(r)).join('\n') + '\n');
+    }
+
+    send({ phase: 'done', rows: result.rows.length, expected: result.expected,
+           queries: result.queries, file: file, url: '/exports/' + encodeURIComponent(file) });
+  } catch (err) {
+    send({ phase: 'error', message: String((err && err.message) || err) });
+  }
+  res.end();
+}
+
 const server = http.createServer(async (req, res) => {
   const url = new URL(req.url, 'http://localhost:' + PORT);
+
+  if (url.pathname === '/api/export/run') {
+    let raw = '';
+    for await (const chunk of req) raw += chunk;
+    let payload = {};
+    try { payload = raw ? JSON.parse(raw) : {}; } catch (e) {}
+    return runExportStream(req, res, payload);
+  }
+
+  // Serve finished exports as downloads.
+  if (url.pathname.startsWith('/exports/')) {
+    const name = path.basename(decodeURIComponent(url.pathname.slice('/exports/'.length)));
+    const full = path.join(EXPORT_DIR, name);
+    if (!full.startsWith(EXPORT_DIR) || !fs.existsSync(full)) {
+      res.writeHead(404); res.end('Not found'); return;
+    }
+    res.writeHead(200, {
+      'Content-Type': name.endsWith('.csv') ? 'text/csv' : 'application/x-ndjson',
+      'Content-Disposition': 'attachment; filename="' + name + '"',
+    });
+    fs.createReadStream(full).pipe(res);
+    return;
+  }
 
   if (routes[url.pathname]) {
     let raw = '';

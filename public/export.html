@@ -1,0 +1,332 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>UCAS Export</title>
+<style>
+  :root{
+    --bg:#0f1115; --panel:#161a21; --panel2:#1b2029; --line:#262d39;
+    --text:#e6e9ef; --dim:#98a2b3; --accent:#5b9dff; --accent2:#2bd4a4;
+    --warn:#ffb020; --radius:8px;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--text);
+    font:14px/1.5 ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+  header{padding:14px 18px;border-bottom:1px solid var(--line);
+    display:flex;gap:14px;align-items:center}
+  h1{font-size:15px;margin:0;font-weight:650}
+  h1 span{color:var(--accent)}
+  header a{margin-left:auto;color:var(--dim);font-size:13px;text-decoration:none}
+  header a:hover{color:var(--accent)}
+  .wrap{max-width:900px;margin:0 auto;padding:22px 18px 70px}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:10px;
+    padding:16px 18px;margin-bottom:16px}
+  .card h2{font-size:13px;margin:0 0 12px;color:var(--dim);
+    text-transform:uppercase;letter-spacing:.6px;font-weight:650}
+  label{display:block;font-size:12px;color:var(--dim);margin:10px 0 4px}
+  input,select,button,textarea{font:inherit;color:var(--text);background:var(--panel2);
+    border:1px solid var(--line);border-radius:var(--radius);padding:8px 10px;outline:none}
+  input:focus,select:focus,textarea:focus{border-color:var(--accent)}
+  .row{display:flex;gap:12px;flex-wrap:wrap}
+  .row>div{flex:1;min-width:150px}
+  select,input[type=text]{width:100%}
+  button{cursor:pointer}
+  button:hover{border-color:var(--accent)}
+  button.primary{background:var(--accent);color:#04101f;border-color:var(--accent);
+    font-weight:650;padding:9px 18px}
+  button.primary:disabled{opacity:.45;cursor:default}
+  button.ghost{background:transparent}
+
+  /* Provider picker */
+  .pick{position:relative}
+  .menu{position:absolute;top:calc(100% + 4px);left:0;right:0;z-index:30;
+    max-height:280px;overflow-y:auto;background:var(--panel2);
+    border:1px solid var(--line);border-radius:var(--radius);
+    box-shadow:0 10px 30px rgba(0,0,0,.45)}
+  .menu .opt{padding:7px 10px;cursor:pointer;display:flex;gap:10px}
+  .menu .opt:hover,.menu .opt.active{background:#243044}
+  .menu .opt .nm{flex:1}
+  .menu .opt .ct{color:var(--dim);font-size:11.5px}
+  .chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}
+  .chip{background:var(--panel2);border:1px solid var(--line);border-radius:99px;
+    padding:4px 8px 4px 11px;font-size:12.5px;display:flex;align-items:center;gap:7px}
+  .chip b{font-weight:600}
+  .chip .ct{color:var(--dim);font-size:11px}
+  .chip button{background:none;border:none;color:var(--dim);cursor:pointer;
+    padding:0 2px;font-size:15px;line-height:1}
+  .chip button:hover{color:#ff7b72}
+
+  /* Estimate panel */
+  .est{display:flex;gap:26px;flex-wrap:wrap;margin-top:4px}
+  .est div{min-width:96px}
+  .est .n{font-size:21px;font-weight:650;color:var(--accent2);line-height:1.2}
+  .est .l{font-size:11.5px;color:var(--dim);text-transform:uppercase;letter-spacing:.5px}
+  .cost{margin-top:14px;padding:10px 12px;border-radius:var(--radius);
+    background:#2a2113;border:1px solid #4a3a1b;color:#f0cf95;font-size:12.5px}
+  .cost.ok{background:#12251c;border-color:#1f4432;color:#8fd9b6}
+  .bar{height:6px;background:var(--panel2);border-radius:99px;overflow:hidden;margin:14px 0 6px}
+  .bar i{display:block;height:100%;background:var(--accent);width:0;transition:width .3s}
+  .log{font:12px ui-monospace,SFMono-Regular,Consolas,monospace;color:var(--dim);
+    max-height:200px;overflow-y:auto;white-space:pre-wrap;margin-top:8px}
+  .err{color:#ff7b72}
+  .done{color:var(--accent2)}
+  a.dl{color:var(--accent)}
+</style>
+</head>
+<body>
+
+<header>
+  <h1>UCAS <span>export</span></h1>
+  <a href="/">← back to search</a>
+</header>
+
+<div class="wrap">
+
+  <div class="card">
+    <h2>What to pull</h2>
+    <div class="row">
+      <div>
+        <label for="year">Entry year</label>
+        <select id="year">
+          <option value="2027">2027</option>
+          <option value="2026">2026</option>
+          <option value="2025">2025</option>
+        </select>
+      </div>
+      <div>
+        <label for="level">Level</label>
+        <select id="level">
+          <option>Undergraduate</option>
+          <option>Postgraduate</option>
+        </select>
+      </div>
+      <div>
+        <label for="format">Format</label>
+        <select id="format">
+          <option value="csv">CSV (spreadsheet)</option>
+          <option value="ndjson">NDJSON (full records)</option>
+        </select>
+      </div>
+    </div>
+
+    <label for="prov">Universities — leave empty for all</label>
+    <div class="pick">
+      <input type="text" id="prov" placeholder="type a name, e.g. Durham, UCL, St Andrews" autocomplete="off">
+      <div id="menu" class="menu" hidden></div>
+    </div>
+    <div class="chips" id="chips"></div>
+  </div>
+
+  <div class="card">
+    <h2>Before you pull</h2>
+    <div class="est">
+      <div><div class="n" id="eProv">–</div><div class="l">universities</div></div>
+      <div><div class="n" id="eRows">–</div><div class="l">courses</div></div>
+      <div><div class="n" id="eQ">–</div><div class="l">queries</div></div>
+      <div><div class="n" id="eSize">–</div><div class="l">approx size</div></div>
+    </div>
+    <div class="cost" id="cost">Choose what you want, then estimate.</div>
+    <div style="margin-top:14px;display:flex;gap:10px">
+      <button class="ghost" id="est">Estimate</button>
+      <button class="primary" id="go" disabled>Download</button>
+    </div>
+    <div class="bar" id="barWrap" hidden><i id="bar"></i></div>
+    <div class="log" id="log"></div>
+  </div>
+
+</div>
+
+<script>
+const $ = s => document.querySelector(s);
+let PROVIDERS = [], PICKED = [], ACTIVE = -1, PLAN = null;
+
+async function post(url, body){
+  const r = await fetch(url, {method:'POST',headers:{'Content-Type':'application/json'},
+                             body:JSON.stringify(body)});
+  const d = await r.json().catch(()=>({}));
+  if(!r.ok) throw new Error(d.error || ('HTTP '+r.status));
+  return d;
+}
+
+const esc = s => String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+
+function opts(){
+  return {
+    academicYearId: $('#year').value,
+    studyLevel: $('#level').value,
+    providers: PICKED.map(p=>p.name),
+  };
+}
+
+// ---- provider picker ----
+async function loadProviders(){
+  PICKED = []; renderChips();
+  try{
+    const d = await post('/api/providers', opts());
+    PROVIDERS = d.providers || [];
+  }catch(e){ PROVIDERS = []; }
+}
+
+function renderChips(){
+  $('#chips').innerHTML = PICKED.map((p,i)=>
+    '<span class="chip"><b>'+esc(p.name)+'</b><span class="ct">'+p.count+'</span>'+
+    '<button data-i="'+i+'" title="Remove">×</button></span>').join('');
+  $('#chips').querySelectorAll('button').forEach(b=>{
+    b.onclick = ()=>{ PICKED.splice(+b.dataset.i,1); renderChips(); invalidate(); };
+  });
+}
+
+function showMenu(term){
+  const t = term.trim().toLowerCase();
+  const picked = new Set(PICKED.map(p=>p.name));
+  let list = PROVIDERS.filter(p=>!picked.has(p.name));
+  if(t) list = list.filter(p=>p.name.toLowerCase().includes(t));
+  list = list.slice(0,60);
+  ACTIVE = -1;
+  const m = $('#menu');
+  if(!list.length){ m.hidden = true; return; }
+  m.innerHTML = list.map((p,i)=>'<div class="opt" data-i="'+i+'">'+
+    '<span class="nm">'+esc(p.name)+'</span><span class="ct">'+p.count+'</span></div>').join('');
+  m.querySelectorAll('.opt').forEach(el=>{
+    el.onmousedown = e=>{ e.preventDefault(); add(list[+el.dataset.i]); };
+  });
+  m._list = list;
+  m.hidden = false;
+}
+
+function add(p){
+  if(!p) return;
+  PICKED.push(p);
+  $('#prov').value = '';
+  $('#menu').hidden = true;
+  renderChips();
+  invalidate();
+}
+
+$('#prov').addEventListener('focus', e=>showMenu(e.target.value));
+$('#prov').addEventListener('input', e=>showMenu(e.target.value));
+$('#prov').addEventListener('blur', ()=>setTimeout(()=>$('#menu').hidden=true,140));
+$('#prov').addEventListener('keydown', e=>{
+  const m = $('#menu'), list = m._list||[];
+  if(m.hidden) return;
+  const els = m.querySelectorAll('.opt');
+  if(e.key==='ArrowDown'||e.key==='ArrowUp'){
+    e.preventDefault();
+    ACTIVE = (ACTIVE + (e.key==='ArrowDown'?1:-1) + els.length) % els.length;
+    els.forEach((el,i)=>el.classList.toggle('active', i===ACTIVE));
+    if(els[ACTIVE]) els[ACTIVE].scrollIntoView({block:'nearest'});
+  } else if(e.key==='Enter'){
+    e.preventDefault();
+    add(ACTIVE>=0 ? list[ACTIVE] : (list.length===1 ? list[0] : null));
+  } else if(e.key==='Escape'){ m.hidden = true; }
+});
+
+['#year','#level'].forEach(s=>$(s).addEventListener('change', ()=>{ loadProviders(); invalidate(); }));
+
+// ---- estimate ----
+function invalidate(){
+  PLAN = null;
+  $('#go').disabled = true;
+  ['eProv','eRows','eQ','eSize'].forEach(id=>$('#'+id).textContent='–');
+  $('#cost').className = 'cost';
+  $('#cost').textContent = 'Selection changed — estimate again.';
+}
+
+$('#est').onclick = async ()=>{
+  $('#est').disabled = true;
+  $('#cost').className='cost';
+  $('#cost').textContent = 'Checking…';
+  try{
+    const plan = await post('/api/export/plan', opts());
+    PLAN = plan;
+    $('#eProv').textContent = plan.providers.toLocaleString();
+    $('#eRows').textContent = plan.rows.toLocaleString();
+    $('#eQ').textContent = plan.queries.toLocaleString();
+    const mb = $('#format').value==='csv' ? plan.rows*0.0003 : plan.rows*0.003;
+    $('#eSize').textContent = mb < 1 ? Math.round(mb*1024)+' KB' : mb.toFixed(1)+' MB';
+
+    // Each query is one Algolia search operation billed to UCAS, so say so.
+    const c = $('#cost');
+    if(plan.queries <= 60){
+      c.className = 'cost ok';
+      c.innerHTML = '<b>Fine.</b> '+plan.queries+' queries is comparable to browsing '+
+        'their site for a few minutes.';
+    } else if(plan.queries <= 600){
+      c.className = 'cost';
+      c.innerHTML = '<b>Reasonable once.</b> '+plan.queries+' search operations against '+
+        "UCAS's backend. Worth doing occasionally, not on a schedule — the data only "+
+        'changes over weeks.';
+    } else {
+      c.className = 'cost';
+      c.innerHTML = '<b>That is a lot.</b> '+plan.queries.toLocaleString()+' search operations. '+
+        'Consider narrowing to the universities you actually care about.';
+    }
+    $('#go').disabled = plan.rows === 0;
+  }catch(e){
+    $('#cost').className='cost';
+    $('#cost').innerHTML = '<span class="err">'+esc(e.message)+'</span>';
+  }finally{ $('#est').disabled = false; }
+};
+
+// ---- run ----
+$('#go').onclick = async ()=>{
+  if(!PLAN) return;
+  $('#go').disabled = true; $('#est').disabled = true;
+  $('#barWrap').hidden = false;
+  const log = $('#log'); log.textContent = '';
+  const add = t => { log.textContent += t + '\n'; log.scrollTop = log.scrollHeight; };
+
+  try{
+    const res = await fetch('/api/export/run', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify(Object.assign({}, opts(), {format: $('#format').value})),
+    });
+    if(!res.ok) throw new Error((await res.json().catch(()=>({}))).error || ('HTTP '+res.status));
+
+    // The server streams newline-delimited progress, then a final line
+    // carrying the download path.
+    const reader = res.body.getReader();
+    const dec = new TextDecoder();
+    let buf = '';
+    while(true){
+      const {value, done} = await reader.read();
+      if(done) break;
+      buf += dec.decode(value, {stream:true});
+      const lines = buf.split('\n');
+      buf = lines.pop();
+      for(const line of lines){
+        if(!line.trim()) continue;
+        let ev; try{ ev = JSON.parse(line); }catch(e){ continue; }
+        if(ev.phase === 'progress'){
+          const pct = Math.round(ev.done/ev.of*100);
+          $('#bar').style.width = pct+'%';
+          log.textContent = ev.done+'/'+ev.of+' universities · '+
+            ev.rows.toLocaleString()+' courses · '+ev.queries+' queries';
+        } else if(ev.phase === 'warn'){
+          add('warning: '+ev.message);
+        } else if(ev.phase === 'done'){
+          $('#bar').style.width = '100%';
+          add('');
+          add('Done — '+ev.rows.toLocaleString()+' courses in '+ev.queries+' queries.');
+          if(ev.rows !== ev.expected) add('note: expected '+ev.expected.toLocaleString()+'.');
+          const a = document.createElement('a');
+          a.className='dl'; a.href = ev.url; a.download = ev.file;
+          a.textContent = 'Download '+ev.file;
+          log.appendChild(a);
+        } else if(ev.phase === 'error'){
+          add('failed: '+ev.message);
+        }
+      }
+    }
+  }catch(e){
+    add('failed: '+e.message);
+  }finally{
+    $('#go').disabled = false; $('#est').disabled = false;
+  }
+};
+
+loadProviders();
+</script>
+</body>
+</html>

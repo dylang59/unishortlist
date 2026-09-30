@@ -10,3 +10,7 @@ Thumbs.db
 tmp/
 scratch/
 server.dbg.js
+
+# Bulk export output
+exports/
+*.ndjson
