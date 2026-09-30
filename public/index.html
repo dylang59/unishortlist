@@ -142,11 +142,8 @@
 const $ = s => document.querySelector(s);
 let ROWS = [], SORT = { key:'provider', dir:1 };
 
-const YEAR_STARTS = {
-  // UCAS filters by concrete start month, not academic year.
-  '2026': ['09/2026','10/2026'],
-  '2027': ['09/2027','10/2027'],
-};
+// Entry cycle is filtered by academicYearId (a plain string). Do NOT filter by
+// start month: 2027 start dates mostly belong to 2026-cycle mid-year intakes.
 
 function progress(p){ $('#prog').style.width = p + '%'; if(p>=100) setTimeout(()=>$('#prog').style.width=0,400); }
 
@@ -157,11 +154,13 @@ async function post(url, body){
 }
 
 function payload(){
-  const p = { schemes:['UCAS Undergraduate'] };
+  // Undergraduate is a destination, not a scheme — filtering by scheme drops
+  // Oxford, Cambridge, LSE and ~45 other direct-application providers.
+  const p = { destinations:['Undergraduate'] };
   const term = $('#q').value.trim();
   if(term) p.searchTerm = term;
   const y = $('#year').value;
-  if(y && YEAR_STARTS[y]) p.startDates = YEAR_STARTS[y];
+  if(y) p.academicYearId = y;
   if($('#qual').value) p.qualifications = [$('#qual').value];
   if($('#mode').value) p.attendanceTypes = [$('#mode').value];
   // Push a picked university upstream so we search its whole catalogue
@@ -191,10 +190,10 @@ async function search(){
     const note = $('#note');
     if(y === '2027' && ROWS.length < 50){
       note.hidden = false;
-      note.innerHTML = '<b>Heads up:</b> UCAS has published very few Sept 2027 courses so far ('+ROWS.length+
-        ' found) — it is still serving 2026 as the live cycle. Search <b>2026</b> to explore, since course '+
-        'content and entry requirements mostly carry over year to year. Worth re-checking 2027 periodically: '+
-        'this count is the ground truth for whether the cycle has opened.';
+      note.innerHTML = '<b>Heads up:</b> only '+(total==null?ROWS.length:total.toLocaleString())+
+        ' undergraduate courses are published for 2027 entry so far — providers have not uploaded their '+
+        '2027 catalogues yet. Search <b>2026</b> to explore, since course content and entry requirements '+
+        'mostly carry over year to year. This count is the ground truth for whether the cycle has filled out.';
     } else { note.hidden = true; }
 
     render();
@@ -336,7 +335,7 @@ let PROVIDERS = [], PROVIDER = null, ACTIVE = -1;
 
 async function loadProviders(){
   try{
-    const d = await post('/api/providers', {schemes:['UCAS Undergraduate']});
+    const d = await post('/api/providers', {destinations:['Undergraduate']});
     PROVIDERS = d.providers || [];
   }catch(e){ /* picker degrades to a plain filter box */ }
 }

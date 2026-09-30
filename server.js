@@ -108,7 +108,18 @@ function flatten(course) {
 
 function buildBody(q) {
   const filters = {};
+  // Undergraduate vs postgraduate is a DESTINATION, not a scheme. Filtering on
+  // schemes: ["UCAS Undergraduate"] looks equivalent but is not — it drops the
+  // ~48 providers who list through "Direct application only", which includes
+  // Oxford, Cambridge, LSE and Durham (about 3,700 courses).
+  if (q.destinations && q.destinations.length) filters.destinations = q.destinations;
   if (q.schemes && q.schemes.length) filters.schemes = q.schemes;
+  // Entry year. This is the right way to filter by cycle: it must be a plain
+  // STRING ("2027"), not an array — an array is rejected as a bad request,
+  // and the plural spellings (academicYears, studyYear) are silently ignored
+  // and return the unfiltered set. Filtering on startDates instead is wrong:
+  // it matches mid-year intakes from the *previous* cycle.
+  if (q.academicYearId) filters.academicYearId = String(q.academicYearId);
   if (q.startDates && q.startDates.length) filters.startDates = q.startDates;
   if (q.subjects && q.subjects.length) filters.subjects = q.subjects;
   if (q.providers && q.providers.length) filters.providers = q.providers;
