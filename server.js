@@ -105,6 +105,19 @@ function buildParams(q, extra) {
   return parts.join('&');
 }
 
+// UCAS course URLs carry a slug of the title after the id:
+//   /explore/courses/<id>/history-politics-and-economics?studyYear=2027
+// The index has no slug field, so derive it — lowercase, non-alphanumerics
+// collapsed to single hyphens. Verified against a known live URL.
+// The id is what actually resolves the course, so a slug that drifts from
+// theirs is cosmetic rather than a broken link.
+function slugify(title) {
+  return String(title || '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '');
+}
+
 // Flatten one Algolia hit (a course + one option) into a compact row.
 function flatten(hit) {
   const opt = (hit.courseOptions && hit.courseOptions[0]) || {};
@@ -167,6 +180,7 @@ function flatten(hit) {
     summary: '',
     courseUrl: null,
     ucasUrl: 'https://www.ucas.com/explore/courses/' + hit.courseId
+           + (slugify(hit.courseTitle) ? '/' + slugify(hit.courseTitle) : '')
            + '?studyYear=' + (hit.academicYearId || ''),
     providerWebsite: prov.url || null,
     vacancies: hit.vacancies || [],

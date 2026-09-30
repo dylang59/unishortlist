@@ -192,6 +192,19 @@ function parseArgs(argv) {
   return o;
 }
 
+// UCAS course URLs put a slug of the title after the id. The index has no
+// slug field, so derive it; the id is what resolves the course, so the slug
+// is cosmetic.
+function slugify(title) {
+  return String(title || '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
+}
+
+function courseUrl(h) {
+  const s = slugify(h.courseTitle);
+  return 'https://www.ucas.com/explore/courses/' + h.courseId +
+         (s ? '/' + s : '') + '?studyYear=' + (h.academicYearId || '');
+}
+
 const CSV_COLS = ['courseId','academicYearId','courseTitle','provider','townOrCity','region',
                   'award','qualificationLevel','studyMode','duration','startDate',
                   'applicationCode','tariffMin','tariffMax','url'];
@@ -211,7 +224,7 @@ function toCsvRow(h) {
     (opt.duration && opt.duration.caption) || '',
     opt.startDate ? (opt.startDate.month || '') + ' ' + (opt.startDate.year || '') : '',
     opt.applicationCode || '', t.min || '', t.max || '',
-    'https://www.ucas.com/explore/courses/' + h.courseId + '?studyYear=' + (h.academicYearId || ''),
+    courseUrl(h),
   ];
   return vals.map(v => '"' + String(v == null ? '' : v).replace(/"/g, '""').replace(/\s+/g, ' ') + '"').join(',');
 }
