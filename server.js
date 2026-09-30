@@ -266,6 +266,57 @@ const routes = {
     return { providers: list };
   },
 
+  // Last year's entry requirements for this year's courses.
+  //
+  // A new cycle carries no tariff data for months — universities publish the
+  // course long before they finalise grades — so the Tariff column is empty
+  // for 2027. courseId is stable across cycles, so the previous year's row
+  // for the same course is a good stand-in, clearly labelled as such.
+  '/api/tariffs': async (payload) => {
+    const year = String(payload.academicYearId || '');
+    const prev = String(Number(year) - 1);
+    if (!year || Number.isNaN(Number(year))) return { year: null, tariffs: {} };
+
+    // Ask only for the providers actually on screen, so this costs a handful
+    // of queries rather than a crawl of the whole previous cycle.
+    const providers = (payload.providers || []).slice(0, 40);
+    if (!providers.length) return { year: prev, tariffs: {} };
+
+    const byId = {};
+    const byTitle = {};
+    const CONC = 4;
+    for (let i = 0; i < providers.length; i += CONC) {
+      const batch = providers.slice(i, i + CONC);
+      await Promise.all(batch.map(async name => {
+        try {
+          const q = { academicYearId: prev, studyLevel: payload.studyLevel || 'Undergraduate',
+                      providers: [name] };
+          // Walk up to the 1,000-hit retrievable cap; a provider with more
+          // than that just contributes its first 1,000, which is plenty for
+          // a lookup table.
+          const first = await algolia(buildParams(q, 'hitsPerPage=100&page=0'));
+          const hits = (first.hits || []).slice();
+          const pages = Math.min(first.nbPages, 10);
+          for (let p = 1; p < pages; p++) {
+            const d = await algolia(buildParams(q, 'hitsPerPage=100&page=' + p));
+            hits.push(...(d.hits || []));
+          }
+          for (const h of hits) {
+            const t = h.ucasTariff;
+            if (!t || (!t.min && !t.max)) continue;
+            const text = t.min === t.max ? String(t.min) + ' points'
+                                         : t.min + ' - ' + t.max + ' points';
+            if (h.courseId && !byId[h.courseId]) byId[h.courseId] = text;
+            const k = (h.provider && h.provider.name) + '|' +
+                      String(h.courseTitle || '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
+            if (!byTitle[k]) byTitle[k] = text;
+          }
+        } catch (e) { /* a missing provider just means no fallback for it */ }
+      }));
+    }
+    return { year: prev, tariffs: byId, byTitle: byTitle };
+  },
+
   // What an export would cost, before committing to it. One query.
   '/api/export/plan': async (payload) => {
     const opts = {
