@@ -10,7 +10,7 @@
   :root{
     --bg:#0f1115; --panel:#161a21; --panel2:#1b2029; --line:#262d39;
     --text:#e6e9ef; --dim:#98a2b3; --accent:#5b9dff; --accent2:#2bd4a4;
-    --warn:#ffb020; --radius:8px;
+    --warn:#ffb020; --radius:0;
   }
   *{box-sizing:border-box}
   body{margin:0;background:var(--bg);color:var(--text);
@@ -22,7 +22,7 @@
   header a{margin-left:auto;color:var(--dim);font-size:13px;text-decoration:none}
   header a:hover{color:var(--accent)}
   .wrap{max-width:900px;margin:0 auto;padding:22px 18px 70px}
-  .card{background:var(--panel);border:1px solid var(--line);border-radius:10px;
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:0;
     padding:16px 18px;margin-bottom:16px}
   .card h2{font-size:13px;margin:0 0 12px;color:var(--dim);
     text-transform:uppercase;letter-spacing:.6px;font-weight:650}
@@ -51,7 +51,7 @@
   .menu .opt .nm{flex:1}
   .menu .opt .ct{color:var(--dim);font-size:11.5px}
   .chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}
-  .chip{background:var(--panel2);border:1px solid var(--line);border-radius:99px;
+  .chip{background:var(--panel2);border:1px solid var(--line);border-radius:0;
     padding:4px 8px 4px 11px;font-size:12.5px;display:flex;align-items:center;gap:7px}
   .chip b{font-weight:600}
   .chip .ct{color:var(--dim);font-size:11px}
@@ -67,7 +67,7 @@
   .cost{margin-top:14px;padding:10px 12px;border-radius:var(--radius);
     background:#2a2113;border:1px solid #4a3a1b;color:#f0cf95;font-size:12.5px}
   .cost.ok{background:#12251c;border-color:#1f4432;color:#8fd9b6}
-  .bar{height:6px;background:var(--panel2);border-radius:99px;overflow:hidden;margin:14px 0 6px}
+  .bar{height:6px;background:var(--panel2);border-radius:0;overflow:hidden;margin:14px 0 6px}
   .bar i{display:block;height:100%;background:var(--accent);width:0;transition:width .3s}
   .log{font:12px ui-monospace,SFMono-Regular,Consolas,monospace;color:var(--dim);
     max-height:200px;overflow-y:auto;white-space:pre-wrap;margin-top:8px}
