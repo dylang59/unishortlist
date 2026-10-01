@@ -143,14 +143,26 @@
   .prov{color:#c3ccda;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 
   /* The UCAS link is always visible, not hidden behind a row expansion —
-     it is the main reason to use this table at all. It stays dim until the
-     row is hovered, so 30 of them do not shout. */
+     it is the main reason to use this table at all, so it is legible at rest
+     rather than appearing on hover. */
   td.c-link{text-align:center;padding:0}
+  th.c-link{font-size:9.5px !important;letter-spacing:.4px;cursor:default}
+  th.c-link:hover{background:none;color:var(--dim)}
   a.ext{display:inline-flex;align-items:center;justify-content:center;
-    width:21px;height:21px;border-radius:5px;color:#5a6474;
+    width:22px;height:22px;border-radius:5px;color:#7f8b9e;
+    border:1px solid transparent;
     font-size:12px;line-height:1;text-decoration:none;transition:all .12s}
-  a.ext:hover{color:#07101f;background:var(--accent);text-decoration:none;
-    transform:translateY(-1px)}
+  tbody tr:hover a.ext{color:var(--accent);border-color:#2f3f58;background:#1a2231}
+  a.ext:hover{color:#07101f !important;background:var(--accent) !important;
+    border-color:var(--accent) !important;text-decoration:none}
+
+  /* The title is a link to the same place. Underlined only on hover so the
+     table does not turn into a wall of blue. */
+  a.ttl.tlink{color:var(--text);text-decoration:none;display:inline-block;
+    max-width:100%;overflow:hidden;text-overflow:ellipsis;vertical-align:bottom}
+  a.ttl.tlink:hover{color:var(--accent);text-decoration:underline;
+    text-underline-offset:2px}
+  tbody tr.sel a.ttl.tlink{color:#fff}
 
   /* Codes are a fixed-width identifier, not a label: monospace so they line
      up as a column the eye can run down. */
@@ -636,7 +648,8 @@ function render(){
     h += '<th data-k="'+k+'" class="'+cls.trim()+'">'+label
       +  '<span class="car">'+(on ? (SORT.dir>0?'▲':'▼') : '▼')+'</span></th>';
   });
-  h += '<th class="c-link" title="Open on UCAS"></th><th class="c-gap"></th>'
+  h += '<th class="c-link" title="Opens the course on ucas.com">UCAS</th>'
+    +  '<th class="c-gap"></th>'
     +  '</tr></thead><tbody>';
   rows.forEach((r,i)=>{
     const pts = entryPoints(r), b = band(pts);
@@ -644,7 +657,10 @@ function render(){
       + '<td class="c-code">'+(r.applicationCode
           ? '<span class="code">'+esc(r.applicationCode)+'</span>'
           : '<span class="code none">—</span>')+'</td>'
-      + '<td class="c-title"><span class="ttl">'+esc(r.title)+'</span></td>'
+      + '<td class="c-title">'+(r.ucasUrl
+          ? '<a class="ttl tlink" href="'+esc(r.ucasUrl)+'" target="_blank" rel="noopener"'
+            + ' title="Open this course on UCAS">'+esc(r.title)+'</a>'
+          : '<span class="ttl">'+esc(r.title)+'</span>')+'</td>'
       + '<td class="c-prov prov">'+esc(r.provider)+'</td>'
       + '<td class="tar'+(r.tariffFrom?' prev':'')+(r.tariff?'':' none')+(b?' '+b.key:'')+'" title="'+(r.tariffFrom?((r.tariffIsGrades?'A-level grades from ':'from ')+r.tariffFrom+(r.tariffIsGrades?'':' entry')):'')+'">'+(r.tariffFrom?'~':'')+esc(r.tariff||'—')+'</td>'
       + '<td class="c-band">'+(b
@@ -670,7 +686,7 @@ function render(){
   $('#out').querySelectorAll('tbody tr').forEach(tr=>{
     tr.onclick = (e)=>{
       // Let the external link do its own thing rather than also opening the panel.
-      if(e.target.closest('a.ext')) return;
+      if(e.target.closest('a')) return;
       open_(+tr.dataset.i);
     };
   });
