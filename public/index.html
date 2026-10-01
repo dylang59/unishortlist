@@ -68,15 +68,16 @@
   /* The universities column holds chips now, so it gets more room and can
      grow taller than its neighbours. Align to the top so the Search button
      stays level with the inputs instead of sinking with the box. */
-  .search-row{display:grid;grid-template-columns:minmax(240px,360px) 140px minmax(260px,460px) max-content max-content;
-    justify-content:start;align-items:start;gap:12px}
-  .field{display:flex;flex-direction:column;gap:6px;min-width:0}
+  .search-row{display:grid;
+    grid-template-columns:minmax(240px,360px) 140px minmax(260px,1fr) max-content max-content;
+    align-items:start;gap:12px}
+  .field{display:flex;flex-direction:column;gap:6px;min-width:0;max-width:100%}
   .field>label{font-size:12px;font-weight:500;color:#bac4d3}
   .field input,.field select{width:100%;min-width:0;height:42px;font-size:14px}
   /* The tag box sizes to its chips rather than to a fixed height, and the
      input inside it must not keep the 42px meant for standalone fields. */
-  .field .combo .tags{min-height:42px}
-  .field .combo .tags input{height:auto;min-height:26px;width:auto}
+  .field .combo .tags{min-height:42px;max-width:100%}
+  .field .combo .tags input{height:auto;min-height:26px;width:auto;min-width:80px}
   #q{min-width:0}
   .search-row>button{height:42px;padding:0 20px;font-size:14px;margin-top:24px}
   #moreFilters{color:var(--dim);background:transparent;padding:0 12px}
@@ -349,7 +350,10 @@
   }
 
   /* Provider picker */
-  .combo{position:relative;display:inline-block}
+  /* block, not inline-block: inside a grid cell the combo must take the cell's
+     width so the tag box wraps, instead of sizing to its chips and spilling
+     across the Search button. */
+  .combo{position:relative;display:block;width:100%;min-width:0}
   /* The bordered box is the wrapper, not the input: chips and the text field
      sit inside it together, and it grows as universities are added. */
   .combo .tags{display:flex;flex-wrap:wrap;align-items:center;gap:5px;
@@ -384,9 +388,9 @@
   .pchips{display:contents}
   .pchip{background:var(--action-tint);border:1px solid #61752a;border-radius:99px;
     padding:2px 5px 2px 10px;font-size:12px;display:inline-flex;align-items:center;
-    gap:6px;max-width:230px;transition:border-color .12s}
+    gap:6px;max-width:230px;min-width:0;flex:0 1 auto;transition:border-color .12s}
   .pchip:hover{border-color:var(--action)}
-  .pchip .nm{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:150px}
+  .pchip .nm{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:160px}
   .pchip .n{color:var(--dim);font-size:11px}
   .pchip button{background:none;border:none;color:var(--dim);cursor:pointer;
     padding:0 1px;font-size:14px;line-height:1}
