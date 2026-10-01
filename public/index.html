@@ -111,6 +111,7 @@
      gap between a 32-character title and the university name. */
   col.w-title{width:42%}
   col.w-prov{width:26%}
+  col.w-code{width:62px}      /* UCAS codes are uniformly 4 characters */
   col.w-tar{width:128px}      /* fits "~112 - 120 points", the longest value */
   col.w-band{width:116px}
   col.w-award{width:104px}
@@ -150,6 +151,15 @@
     font-size:12px;line-height:1;text-decoration:none;transition:all .12s}
   a.ext:hover{color:#07101f;background:var(--accent);text-decoration:none;
     transform:translateY(-1px)}
+
+  /* Codes are a fixed-width identifier, not a label: monospace so they line
+     up as a column the eye can run down. */
+  td.c-code{padding:0 10px}
+  .code{font:11.5px/1 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+    color:#8b97a8;letter-spacing:.4px}
+  tbody tr:hover .code{color:var(--text)}
+  tbody tr.sel .code{color:#fff}
+  .code.none{color:#3c4452}
 
   .tag{display:inline-block;background:var(--panel2);border:1px solid var(--line);
     border-radius:4px;padding:0 5px;font-size:10.5px;color:var(--dim);
@@ -530,6 +540,11 @@ function visible(){
     if(k==='tariff'){ x=tariffNum(a.tariff); y=tariffNum(b.tariff);
       if(x==null) return 1; if(y==null) return -1; return (x-y)*d; }
     x=(a[k]||'').toString().toLowerCase(); y=(b[k]||'').toString().toLowerCase();
+    // Empty values sort last in either direction. 969 courses carry no
+    // application code, and they would otherwise fill the first screen.
+    if(!x && !y) return 0;
+    if(!x) return 1;
+    if(!y) return -1;
     return x<y?-d:x>y?d:0;
   });
   return rows;
@@ -605,28 +620,31 @@ function render(){
   }
   // Location is gone: town and region live in the side panel, and dropping the
   // column buys the width that keeps course titles on one line.
-  const cols = [['title','Course'],['provider','University'],
+  const cols = [['applicationCode','Code'],['title','Course'],['provider','University'],
                 ['tariff','Tariff'],['entry','Entry'],['award','Award'],
                 ['duration','Len'],['start','Start']];
   // table-layout:fixed needs a colgroup for the widths to apply.
   let h = '<table><colgroup>'
-    + '<col class="w-title"><col class="w-prov"><col class="w-tar">'
-    + '<col class="w-band"><col class="w-award"><col class="w-len">'
-    + '<col class="w-start"><col class="w-link"><col class="w-gap">'
-    + '</colgroup><thead><tr>';
+    + '<col class="w-code"><col class="w-title"><col class="w-prov">'
+    + '<col class="w-tar"><col class="w-band"><col class="w-award">'
+    + '<col class="w-len"><col class="w-start"><col class="w-link">'
+    + '<col class="w-gap"></colgroup><thead><tr>';
   cols.forEach(([k,label],ci)=>{
     const on = SORT.key===k;
-    const cls = (on?'sorted':'') + (ci===0?' c-title':ci===1?' c-prov':ci===3?' c-band':'');
+    const cls = (on?'sorted':'') +
+      (ci===0?' c-code':ci===1?' c-title':ci===2?' c-prov':ci===4?' c-band':'');
     h += '<th data-k="'+k+'" class="'+cls.trim()+'">'+label
       +  '<span class="car">'+(on ? (SORT.dir>0?'▲':'▼') : '▼')+'</span></th>';
   });
   h += '<th class="c-link" title="Open on UCAS"></th><th class="c-gap"></th>'
     +  '</tr></thead><tbody>';
   rows.forEach((r,i)=>{
-    const code = r.applicationCode ? ' <span class="tag">'+esc(r.applicationCode)+'</span>' : '';
     const pts = entryPoints(r), b = band(pts);
     h += '<tr data-i="'+i+'">'
-      + '<td class="c-title"><span class="ttl">'+esc(r.title)+'</span>'+code+'</td>'
+      + '<td class="c-code">'+(r.applicationCode
+          ? '<span class="code">'+esc(r.applicationCode)+'</span>'
+          : '<span class="code none">—</span>')+'</td>'
+      + '<td class="c-title"><span class="ttl">'+esc(r.title)+'</span></td>'
       + '<td class="c-prov prov">'+esc(r.provider)+'</td>'
       + '<td class="tar'+(r.tariffFrom?' prev':'')+(r.tariff?'':' none')+(b?' '+b.key:'')+'" title="'+(r.tariffFrom?((r.tariffIsGrades?'A-level grades from ':'from ')+r.tariffFrom+(r.tariffIsGrades?'':' entry')):'')+'">'+(r.tariffFrom?'~':'')+esc(r.tariff||'—')+'</td>'
       + '<td class="c-band">'+(b
