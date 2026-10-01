@@ -290,11 +290,65 @@ Columns worth knowing:
 - `subjects` — keyword blob, truncated to 500 chars, used for `LIKE`.
 
 Indexes cover the filters the UI actually issues: `(year, level)` always, then
-provider / award level / region / mode / tariff. There is an FTS5 table
-(`courses_fts`) rebuilt on import; the Worker currently uses `LIKE` instead,
-which is fast enough at 30k rows.
+provider / award level / region / mode / tariff.
+
+### Why there is an index on the sort order
+
+`idx_sort (year, level, provider_sort, title)` exists because D1 bills **rows
+read**, not rows returned, and without it an unfiltered search read the whole
+cycle to return 300 rows:
+
+| | plan | time |
+|---|---|---|
+| without `idx_sort` | `idx_tariff` + `USE TEMP B-TREE FOR ORDER BY` | 37 ms |
+| with `idx_sort` | `idx_sort`, no sort step | 1.3 ms |
+
+The sort is the reason, not the filter. `ORDER BY provider_sort, title` had no
+index to satisfy it, so SQLite picked any index that covered `year`+`level`,
+then materialised and sorted the entire filtered set in a temp b-tree — which
+`LIMIT 300` cannot short-circuit. 29,774 rows read per request, and again for
+the `COUNT(*)`.
+
+### ANALYZE is mandatory, not a nicety
+
+`import-d1.js` appends `ANALYZE` after the FTS rebuild. Without the statistics
+it writes, the planner has only guesses and picks `idx_sort` for *every* search,
+including filtered ones where seeking `idx_provider` is far cheaper — a
+single-provider search measured **16.3 ms instead of 0.9 ms**. Re-run it after
+any bulk load; `migrate-indexes.sql` does it for a database loaded before this
+change.
+
+### No index on `title` alone
+
+Deliberate. The only query touching `title` is `lower(title) LIKE '%term%'`,
+which no index can serve — verified `SCAN courses` even for a prefix pattern.
+
+### FTS5 is built but unused
+
+`courses_fts` is rebuilt on every import; the Worker uses `LIKE` instead. This
+is a deliberate trade-off, not an oversight. FTS is token-based, so a search for
+`physics` matches 746 rows and misses *Astrophysics*, *Biophysics* and
+*Astronomy, Space Science and Astrophysics*; the substring `LIKE` matches 848
+and finds them. Switching would be faster (0.6 ms vs 51 ms) but would quietly
+drop results. It costs 3.6 MB to carry.
+
+### Ordering is deterministic
+
+Searches order by `provider_sort, title, rowid_key`. The third term matters:
+2,383 rows share a `(provider_sort, title)` with another row — the same course
+at a different study mode or start date — and without a tiebreak their relative
+order is undefined, so a row could move position between identical requests.
 
 `meta` holds `snapshot_<year>_<level>` (ISO timestamp) and `rows_<year>_<level>`.
+
+### Cost per page load
+
+A cold, unfiltered page load issues `/api/meta`, `/api/providers`, `/api/facets`
+and `/api/search`. The facets endpoint alone runs four `GROUP BY`s over the same
+filtered set (all covering-index, and now issued with `Promise.all` rather than
+four serial round-trips). Before `idx_sort` that load totalled roughly **238,000
+rows read**; D1's free tier allows 5M/day. Picking a university cuts it by two
+orders of magnitude, since every query then seeks instead of scanning.
 
 ---
 
@@ -329,6 +383,14 @@ Algolia  --(1)-->  snapshot-2027.sql  --(2)-->  D1 (remote)  --(3)-->  Worker re
 npm run snapshot -- --year 2027 --level Undergraduate --out snapshot-2027.sql
 npx wrangler d1 execute ucasbuster --remote --file=snapshot-2027.sql
 npm run deploy      # only if worker.js or public/ changed
+```
+
+A snapshot carries its own schema, so step 2 brings the indexes and the
+`ANALYZE` with it. A database loaded *before* those were added needs the
+one-off migration instead of a full re-import:
+
+```
+npx wrangler d1 execute ucasbuster --remote --file=migrate-indexes.sql
 ```
 
 The .sql file is an intermediate artifact, gitignored and not in the repo

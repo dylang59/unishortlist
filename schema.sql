@@ -46,8 +46,16 @@ CREATE INDEX idx_provider        ON courses (year, level, provider);
 CREATE INDEX idx_award_level     ON courses (year, level, award_level);
 CREATE INDEX idx_region          ON courses (year, level, region);
 CREATE INDEX idx_mode            ON courses (year, level, study_mode);
-CREATE INDEX idx_title           ON courses (title);
 CREATE INDEX idx_tariff          ON courses (year, level, tariff_min);
+
+-- Matches the ORDER BY every search issues, which is what lets LIMIT stop
+-- early. Without it SQLite satisfies year+level from some other index and
+-- then sorts the whole filtered set in a temp b-tree, so an unfiltered
+-- search reads all 29,774 rows to return 300 -- and D1 bills rows read.
+CREATE INDEX idx_sort            ON courses (year, level, provider_sort, title);
+
+-- There is deliberately no index on title alone: the only query touching it
+-- is `lower(title) LIKE '%term%'`, which no index can serve.
 
 -- Full-text search over course title, provider and subject keywords.
 DROP TABLE IF EXISTS courses_fts;

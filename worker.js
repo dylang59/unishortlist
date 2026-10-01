@@ -94,10 +94,14 @@ async function handleSearch(env, p) {
   // courses. Interleave instead: take a fair share from each selected
   // provider so every one of them is represented.
   const picked = (p.providers || []).filter(Boolean);
+  // rowid_key breaks ties: 2,383 rows share a (provider_sort, title) with
+  // another -- the same course at a different study mode or start date -- and
+  // without it their relative order is undefined, so a row can move between
+  // identical requests.
   const sql = picked.length > 1
     ? 'SELECT * FROM (SELECT *, ROW_NUMBER() OVER (PARTITION BY provider ORDER BY title) AS rn ' +
-      'FROM courses ' + w.sql + ') ORDER BY rn, provider_sort, title LIMIT ?'
-    : 'SELECT * FROM courses ' + w.sql + ' ORDER BY provider_sort, title LIMIT ?';
+      'FROM courses ' + w.sql + ') ORDER BY rn, provider_sort, title, rowid_key LIMIT ?'
+    : 'SELECT * FROM courses ' + w.sql + ' ORDER BY provider_sort, title, rowid_key LIMIT ?';
 
   const rows = await env.DB.prepare(sql).bind(...w.args, limit).all();
 
@@ -135,12 +139,20 @@ async function handleFacets(env, p) {
   // `where` always emits at least year/level for these calls, so the extra
   // AND above is safe; guard anyway for a filterless request.
   if (!w.sql) return { counts: {} };
+  // The four group-bys are independent, so issue them together rather than
+  // paying four serial round-trips to D1.
+  const [providers, qualifications, studyModes, regions] = await Promise.all([
+    group('provider'),
+    group('award_level'),
+    group('study_mode'),
+    group('region'),
+  ]);
   return {
     counts: {
-      providers: await group('provider'),
-      qualifications: await group('award_level'),
-      studyModes: await group('study_mode'),
-      regions: await group('region'),
+      providers: providers,
+      qualifications: qualifications,
+      studyModes: studyModes,
+      regions: regions,
     },
   };
 }

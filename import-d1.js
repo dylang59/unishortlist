@@ -221,6 +221,12 @@ async function main() {
   // Rebuild the search index over the new rows.
   parts.push("INSERT INTO courses_fts(courses_fts) VALUES('rebuild');");
 
+  // Collect index statistics. Without these the planner has only guesses to
+  // work with and picks idx_sort even when a provider filter would be far
+  // cheaper -- a filtered search measured 16.3 ms instead of 0.9 ms. Must be
+  // re-run after every load, since it is the row counts that have changed.
+  parts.push("ANALYZE;");
+
   fs.writeFileSync(out, parts.join('\n') + '\n');
   const size = fs.statSync(out).size;
   const withT = res.rows.filter(h => {
