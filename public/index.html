@@ -95,19 +95,31 @@
   .welcome{max-width:1280px;margin:clamp(32px,5vh,56px) auto;padding:0 24px;text-align:center}
   .welcome .eyebrow{color:var(--action);font-size:12px;letter-spacing:1.5px;text-transform:uppercase;font-weight:600}
   .welcome h2{font-size:clamp(28px,4vw,40px);font-weight:650;letter-spacing:-1.2px;line-height:1.15;margin:14px 0}
-  .welcome p{color:var(--dim);font-size:16px;line-height:1.65;margin:0 auto;max-width:440px}
+  .welcome p{color:var(--dim);font-size:16px;line-height:1.65;margin:0 auto;max-width:520px}
   .examples{display:flex;justify-content:center;gap:8px;flex-wrap:wrap;margin:24px 0}
   .examples button{padding:9px 13px;border-radius:0;background:var(--panel);color:#cbd7e8}
   .examples button:hover:not(:disabled){border-color:var(--action);color:var(--action);background:var(--action-tint)}
   .welcome .hint{font-size:12px;color:var(--dim)}
-  .starter-paths{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:24px;margin-top:32px;text-align:left}
+  /* Two ways in, not two steps: an "or" sits in the gutter between them so the
+     pair reads as a choice rather than a sequence. */
+  .starter-paths{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));
+    gap:24px;margin-top:32px;text-align:left;position:relative}
+  .starter-paths::before{content:'or';position:absolute;top:50%;left:50%;
+    transform:translate(-50%,-50%);z-index:1;
+    background:var(--bg);color:var(--dim);font-size:11px;font-weight:600;
+    text-transform:uppercase;letter-spacing:1px;padding:6px 4px}
   .starter-path{min-width:0;padding:24px;background:var(--panel);border:1px solid var(--line);border-radius:0}
-  .starter-path h3{font-size:22px;margin:0 0 8px;font-weight:650;letter-spacing:-.3px}
+  /* The question is the point of this screen, so it carries the weight the
+     old "Search by ..." heading did not need to. */
+  .starter-path h3{font-size:21px;margin:0 0 10px;font-weight:650;letter-spacing:-.4px;
+    color:var(--text)}
   .starter-path p{max-width:none;margin:0}
   .starter-path .examples{justify-content:flex-start;margin:24px 0}
   .starter-path .examples button{background:var(--panel2)}
   @media(max-width:820px){
     .starter-paths{grid-template-columns:1fr;gap:16px}
+    /* Stacked, the gutter "or" would land on top of a card. */
+    .starter-paths::before{display:none}
     .welcome{padding:0 16px}
     .starter-path{padding:20px}
   }
@@ -539,11 +551,11 @@
   <section class="welcome" aria-labelledby="welcomeTitle">
     <div class="eyebrow">Your next chapter</div>
     <h2 id="welcomeTitle">Find your next course.</h2>
-    <p>Explore undergraduate courses and compare entry requirements across your favourite universities.</p>
+    <p>Start with either. Compare entry requirements side by side.</p>
     <div class="starter-paths">
     <section class="starter-path topic-starters" aria-labelledby="topicsTitle">
-      <h3 id="topicsTitle">Search by course topic</h3>
-      <p class="hint">Know what you want to study? Choose a topic to explore matching courses.</p>
+      <h3 id="topicsTitle">What do you want to study?</h3>
+      <p class="hint">Pick a topic to see every course that matches, across all universities.</p>
     <div class="examples" aria-label="Try a subject">
       <button data-subject="Accounting">Accounting ↗</button>
       <button data-subject="Architecture">Architecture ↗</button>
@@ -579,8 +591,8 @@
     <p class="hint">Looking for something else? Enter a course keyword in the search bar.</p>
     </section>
     <section class="starter-path university-starters" aria-labelledby="universitiesTitle">
-      <h3 id="universitiesTitle">Search by university</h3>
-      <p class="hint">Know where you want to study? Pick up to five, then search their courses together.</p>
+      <h3 id="universitiesTitle">Where do you want to study?</h3>
+      <p class="hint">Pick up to five universities and compare their courses side by side.</p>
       <div id="universityStarters" class="examples" aria-label="University quick picks"></div>
       <p id="universityStatus" class="hint" role="status">Loading universities…</p>
       <div class="actions">
