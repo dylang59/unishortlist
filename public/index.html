@@ -1184,8 +1184,15 @@ function markup(text, term){
 function matches(term){
   if(!PROVIDERS.length) return [];
   const t = term.trim().toLowerCase();
-  if(!t) return PROVIDERS.slice(0, 80);
-  // Search display name AND alias, so "MMU" or "LSBU" finds the institution.
+  // Every match, not a capped slice. The menu is a 340px scroll box, so 320
+  // rows cost nothing to render, and capping at 80 silently hid 240 providers
+  // -- 83% of the catalogue, St Andrews and UCL among them -- because the list
+  // is alphabetical and "University of ..." sorts late.
+  if(!t) return PROVIDERS.slice();
+  // Matches name or alias, but both backends currently set value === name
+  // (worker.js and server.js each derive it from the provider name), so the
+  // alias arm is inert: "MMU" finds nothing. Kept for when a real alias
+  // source exists; UCAS does not expose one on this index.
   const hits = PROVIDERS.filter(p =>
     p.name.toLowerCase().includes(t) || p.value.toLowerCase().includes(t));
   // Prefer names that start with the term, then shorter names.
@@ -1194,7 +1201,7 @@ function matches(term){
     if(as!==bs) return as?-1:1;
     return a.name.length-b.name.length;
   });
-  return hits.slice(0, 80);
+  return hits;
 }
 
 function openMenu(term){
