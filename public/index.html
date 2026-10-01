@@ -62,6 +62,12 @@
   button.primary:hover:not(:disabled){background:var(--action-hover);border-color:var(--action-hover)}
   button.primary:disabled{opacity:.45;cursor:default;transform:none}
   .brand-row{display:flex;align-items:center;gap:10px;margin-bottom:16px}
+  /* Square icon button: the padding that suits a text label leaves a lone
+     glyph off-centre, so centre it explicitly and give it equal sides. */
+  #home{display:inline-flex;align-items:center;justify-content:center;
+    width:30px;height:30px;padding:0;color:var(--dim);flex:none}
+  #home svg{width:16px;height:16px;display:block}
+  #home:hover{color:var(--text)}
   .brand-row h1{font-size:16px;margin:0}
   /* The // sits in CSS, not in the caption text, so it vanishes with the
      caption on narrow screens instead of dangling after the title. */
@@ -407,7 +413,20 @@
 
 <header>
   <div class="brand-row">
-    <button id="home" title="Return to starter subjects and universities">Home</button>
+    <!-- A reset arrow, not a house: this clears the query and results and goes
+         back to the starter screen, so it is "start over" rather than
+         navigation. Inline SVG rather than U+21BA, which renders thin and
+         inconsistently across font stacks; currentColor keeps it in step with
+         the button's hover state. -->
+    <button id="home" aria-label="Start a new search" title="Start a new search &mdash; keeps your universities">
+      <svg viewBox="0 0 16 16" aria-hidden="true" focusable="false">
+        <path d="M13.2 8a5.2 5.2 0 1 1-1.7-3.85" fill="none"
+              stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/>
+        <path d="M13.4 2.2v3.1h-3.1" fill="none"
+              stroke="currentColor" stroke-width="1.7"
+              stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+    </button>
     <h1>UCAS <span>search buster</span></h1>
     <span class="brand-caption">an optimized UCAS search tool</span>
     <a id="exportLink" href="/export" hidden>Bulk export &rarr;</a>
