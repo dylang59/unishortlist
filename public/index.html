@@ -65,21 +65,13 @@
   .refine-label{color:var(--dim);font-size:12px;white-space:nowrap}
   .refine-label.partial{border-bottom:1px dotted #5b6678;cursor:help}
   .brand-row #exportLink{margin-left:auto;color:var(--dim);font-size:12px}
-  /* The universities column holds chips now, so it gets more room and can
-     grow taller than its neighbours. Align to the top so the Search button
-     stays level with the inputs instead of sinking with the box. */
-  .search-row{display:grid;
-    grid-template-columns:minmax(240px,360px) 140px minmax(260px,1fr) max-content max-content;
-    align-items:start;gap:12px}
+  .search-row{display:grid;grid-template-columns:minmax(240px,400px) 140px minmax(220px,300px) max-content max-content;
+    justify-content:start;align-items:end;gap:12px}
   .field{display:flex;flex-direction:column;gap:6px;min-width:0;max-width:100%}
   .field>label{font-size:12px;font-weight:500;color:#bac4d3}
   .field input,.field select{width:100%;min-width:0;height:42px;font-size:14px}
-  /* The tag box sizes to its chips rather than to a fixed height, and the
-     input inside it must not keep the 42px meant for standalone fields. */
-  .field .combo .tags{min-height:42px;max-width:100%}
-  .field .combo .tags input{height:auto;min-height:26px;width:auto;min-width:80px}
   #q{min-width:0}
-  .search-row>button{height:42px;padding:0 20px;font-size:14px;margin-top:24px}
+  .search-row>button{height:42px;padding:0 20px;font-size:14px}
   #moreFilters{color:var(--dim);background:transparent;padding:0 12px}
   #moreFilters[aria-expanded="true"]{color:var(--accent);border-color:var(--accent)}
   .advanced{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;max-width:1080px;
@@ -354,18 +346,9 @@
      width so the tag box wraps, instead of sizing to its chips and spilling
      across the Search button. */
   .combo{position:relative;display:block;width:100%;min-width:0}
-  /* The bordered box is the wrapper, not the input: chips and the text field
-     sit inside it together, and it grows as universities are added. */
-  .combo .tags{display:flex;flex-wrap:wrap;align-items:center;gap:5px;
-    background:var(--panel2);border:1px solid var(--line);border-radius:6px;
-    padding:4px 24px 4px 5px;min-height:33px;cursor:text;
-    transition:border-color .12s,background .12s}
-  .combo .tags:hover{border-color:#333d4d}
-  .combo .tags:focus-within{border-color:var(--accent);background:#1d2531}
-  .combo .tags input{flex:1;min-width:90px;width:auto;
-    background:none;border:none;padding:2px 4px;border-radius:0}
-  .combo .tags input:hover,.combo .tags input:focus{background:none;border:none}
-  .combo .clear{position:absolute;right:2px;top:5px;
+  .combo input{padding-right:24px}
+  .combo input.selected{border-color:#7e9636}
+  .combo .clear{position:absolute;right:2px;top:50%;transform:translateY(-50%);
     background:none;border:none;color:var(--dim);font-size:16px;line-height:1;
     padding:2px 6px;cursor:pointer}
   .combo .clear:hover{color:var(--text)}
@@ -381,15 +364,28 @@
   .menu .opt .alias{display:block;color:var(--dim);font-size:11px;margin-top:1px}
   .menu .none{padding:10px;color:var(--dim);font-size:12.5px}
   .menu mark{background:rgba(91,157,255,.28);color:var(--text);border-radius:2px}
-  /* The green edge marks 'this filter is active'. It sits on the wrapper now,
-     since the input itself no longer draws a border. */
-  .combo .tags.selected{border-color:#7e9636}
-  /* Selected universities, shown as removable chips next to the picker */
+  /* Every active filter, on a full-width row under the search bar. It gets the
+     whole width, so a five-university shortlist stays on one line where the
+     460px column could not. */
+  .afilters{display:flex;flex-wrap:wrap;align-items:center;gap:6px;
+    margin-top:12px;padding-top:12px;border-top:1px solid var(--line)}
+  .afilters-label{color:var(--dim);font-size:11px;text-transform:uppercase;
+    letter-spacing:.5px;margin-right:2px}
+  .clear-all{margin-left:6px;color:var(--dim);background:none;border:none;
+    font-size:12px;padding:3px 6px;text-decoration:underline;
+    text-underline-offset:2px;cursor:pointer}
+  .clear-all:hover{color:#ff7b72;background:none;border:none}
   .pchips{display:contents}
   .pchip{background:var(--action-tint);border:1px solid #61752a;border-radius:99px;
     padding:2px 5px 2px 10px;font-size:12px;display:inline-flex;align-items:center;
     gap:6px;max-width:230px;min-width:0;flex:0 1 auto;transition:border-color .12s}
   .pchip:hover{border-color:var(--action)}
+  /* Advanced filters read as key + value and are neutral, so the green chips
+     stay unmistakably "universities". */
+  .pchip.adv{background:var(--panel2);border-color:var(--line)}
+  .pchip.adv:hover{border-color:#3d4a5c}
+  .pchip.adv .k{color:var(--dim);font-size:11px;text-transform:uppercase;
+    letter-spacing:.4px}
   .pchip .nm{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:160px}
   .pchip .n{color:var(--dim);font-size:11px}
   .pchip button{background:none;border:none;color:var(--dim);cursor:pointer;
@@ -425,21 +421,25 @@
   </div>
   <div class="field university-field">
     <label for="fprov">Universities</label>
-    <!-- Chips live inside the control, so the field shows its own state. They
-         used to sit on a row of their own below, which left the input looking
-         empty while five universities were selected. -->
     <div class="combo">
-      <div class="tags" id="tagBox">
-        <span id="provChips" class="pchips"></span>
-        <input id="fprov" placeholder="Any university" autocomplete="off"
-               role="combobox" aria-expanded="false" aria-autocomplete="list" aria-controls="provlist">
-      </div>
+      <input id="fprov" placeholder="Any university" autocomplete="off"
+             role="combobox" aria-expanded="false" aria-autocomplete="list" aria-controls="provlist">
       <button id="fprovClear" class="clear" title="Clear all universities" hidden>×</button>
       <div id="provlist" class="menu" role="listbox" hidden></div>
     </div>
   </div>
   <button class="primary" id="go">Search</button>
   <button id="moreFilters" aria-expanded="false" aria-controls="advancedFilters">More filters</button>
+  </div>
+  <!-- Every active filter, on its own full-width row. Chips were tried inside
+       the universities field, but five of them need ~1,050px and that column
+       only gets ~460px at 1280px wide, so they wrapped to four lines. A row
+       has the whole width to work with and holds the advanced filters too,
+       which were otherwise invisible once "More filters" was collapsed. -->
+  <div id="activeFilters" class="afilters" hidden>
+    <span class="afilters-label">Filters</span>
+    <span id="provChips" class="pchips"></span>
+    <button type="button" id="clearFilters" class="clear-all">Clear all</button>
   </div>
   <div id="advancedFilters" class="advanced" hidden>
   <div class="field">
@@ -1297,18 +1297,49 @@ function closeMenu(){
   ACTIVE = -1;
 }
 
+// The advanced selects, so the filter row can show them as chips too. Labels
+// come from the chosen <option>, not a second list kept by hand.
+const ADV = [['#qual','Qualification'],['#mode','Mode'],['#region','Region']];
+
 function renderChips(){
   const box = $('#provChips');
-  box.innerHTML = PICKED.map((p,i)=>
-    '<span class="pchip"><span class="nm">'+esc(p.name)+'</span>'+
+  let h = PICKED.map((p,i)=>
+    '<span class="pchip" title="'+esc(p.name)+'"><span class="nm">'+esc(p.name)+'</span>'+
     '<span class="n">'+p.count.toLocaleString()+'</span>'+
     '<button data-i="'+i+'" title="Remove">×</button></span>').join('');
+  // Advanced filters appear here too: once "More filters" collapses they were
+  // still applied but invisible, which is how a search quietly returns too few.
+  for(const [sel,label] of ADV){
+    const el = $(sel);
+    if(!el || !el.value) continue;
+    h += '<span class="pchip adv">'
+       + '<span class="k">'+esc(label)+'</span>'
+       + '<span class="nm">'+esc(el.options[el.selectedIndex].textContent)+'</span>'
+       + '<button data-sel="'+sel+'" title="Remove">×</button></span>';
+  }
+  box.innerHTML = h;
   box.querySelectorAll('button').forEach(b=>{
-    b.onclick = ()=>{ PICKED.splice(+b.dataset.i,1); renderChips(); save(); searchAfterProviderChange(); };
+    b.onclick = ()=>{
+      if(b.dataset.sel){
+        const el = $(b.dataset.sel);
+        el.value = '';
+        el.dispatchEvent(new Event('change'));
+        // Removing a chip is an edit to a filter that is already applied, so it
+        // takes effect now. Changing the select itself still waits for Search,
+        // as it always has -- you may be setting several at once there.
+        searchAfterProviderChange();
+        return;
+      }
+      PICKED.splice(+b.dataset.i,1); renderChips(); save(); searchAfterProviderChange();
+    };
   });
-  $('#tagBox').classList.toggle('selected', PICKED.length>0);
+  const advOn = ADV.filter(([s])=>$(s) && $(s).value).length;
+  $('#activeFilters').hidden = !PICKED.length && !advOn;
+  $('#fprov').classList.toggle('selected', PICKED.length>0);
   $('#fprovClear').hidden = PICKED.length===0;
-  $('#fprov').placeholder = PICKED.length ? 'Add another university…' : 'Any university';
+  $('#fprov').placeholder = PICKED.length
+    ? PICKED.length + (PICKED.length===1 ? ' selected' : ' selected') + ' — add another…'
+    : 'Any university';
   renderUniversityStarters();
 }
 
@@ -1364,13 +1395,6 @@ $('#fprov').addEventListener('keydown', e=>{
   }
 });
 $('#fprovClear').onclick = ()=>{ clearProviders(); $('#fprov').focus(); };
-// The box is bigger than the input now, so clicking the padding around the
-// chips should focus the field, as it would in any tag input.
-$('#tagBox').addEventListener('mousedown', e=>{
-  if(e.target.closest('.pchip') || e.target === $('#fprov')) return;
-  e.preventDefault();
-  $('#fprov').focus();
-});
 
 // When served from a snapshot (the deployed Worker), say how fresh it is so
 // nobody mistakes it for live UCAS data, and drop any entry year the snapshot
@@ -1437,7 +1461,21 @@ $('#moreFilters').onclick = ()=>{
 ['#qual','#mode','#region','#depth'].forEach(s=>$(s).addEventListener('change', ()=>{
   const count = ['#qual','#mode','#region'].filter(id=>$(id).value).length + ($('#depth').value !== '3' ? 1 : 0);
   $('#moreFilters').textContent = 'More filters' + (count ? ' ('+count+')' : '');
+  // Keep the filter row in step with the advanced selects, including when a
+  // chip's x cleared one and dispatched this event.
+  renderChips();
 }));
+
+// Clears the lot: universities and the advanced selects, then re-runs once.
+$('#clearFilters').onclick = ()=>{
+  PICKED = [];
+  for(const [sel] of ADV){ const el = $(sel); if(el) el.value = ''; }
+  $('#fprov').value = '';
+  $('#moreFilters').textContent = 'More filters';
+  save();
+  renderChips();
+  searchAfterProviderChange();
+};
 $('#q').addEventListener('keydown', e=>{ if(e.key==='Enter') search(); });
 ['#fsub','#ftown','#ftar'].forEach(s=>$(s).addEventListener('input', ()=>{ if(ROWS.length) render(); }));
 $('#csv').onclick = csv;
