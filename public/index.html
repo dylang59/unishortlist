@@ -710,6 +710,39 @@ function csv(){
 // shortlist can be compared side by side in one table.
 let PROVIDERS = [], PICKED = [], ACTIVE = -1;
 
+// ---- Persistence -----------------------------------------------------
+// The shortlist is the one thing worth rebuilding by hand, so it survives a
+// reload. Only the names are stored: counts go stale as UCAS publishes, and
+// loadProviders() refreshes them against the live list on every visit.
+const SKEY = 'ucasbuster.picked.v1';
+
+function save(){
+  try{
+    localStorage.setItem(SKEY, JSON.stringify({
+      year: $('#year').value,
+      names: PICKED.map(p => p.name),
+    }));
+  }catch(e){ /* private window, or storage full: not worth interrupting for */ }
+}
+
+// Returns the stored names so loadProviders can resolve them to live rows.
+function restore(){
+  try{
+    const raw = localStorage.getItem(SKEY);
+    if(!raw) return [];
+    const d = JSON.parse(raw) || {};
+    // Restore the cycle first: a shortlist belongs to the year it was built
+    // in, and provider lists differ between cycles.
+    if(d.year !== undefined && [...$('#year').options].some(o=>o.value===d.year)){
+      $('#year').value = d.year;
+    }
+    return Array.isArray(d.names) ? d.names.filter(n=>typeof n === 'string') : [];
+  }catch(e){ return []; }
+}
+
+// Names waiting to be matched against the live provider list.
+let PENDING = [];
+
 async function loadProviders(){
   try{
     // Scope the list to the selected cycle, so counts match what a search
@@ -719,11 +752,24 @@ async function loadProviders(){
       academicYearId: $('#year').value || undefined,
     });
     PROVIDERS = d.providers || [];
-    // Drop any selection that no longer exists in this cycle.
-    const live = new Set(PROVIDERS.map(p=>p.name));
+    const by = new Map(PROVIDERS.map(p=>[p.name, p]));
+
+    // Resolve anything restored from a previous session now that real rows
+    // (with current counts) are available.
+    if(PENDING.length){
+      PICKED = PENDING.map(n=>by.get(n)).filter(Boolean);
+      PENDING = [];
+      renderChips();
+      if(PICKED.length) search();
+      return;
+    }
+
+    // Re-point existing selections at the fresh rows so counts stay current,
+    // and drop any that no longer exist in this cycle.
     const before = PICKED.length;
-    PICKED = PICKED.filter(p=>live.has(p.name));
-    if(PICKED.length !== before) renderChips();
+    PICKED = PICKED.map(p=>by.get(p.name)).filter(Boolean);
+    if(PICKED.length !== before){ renderChips(); save(); }
+    else renderChips();
   }catch(e){ /* picker degrades to a plain filter box */ }
 }
 
@@ -790,7 +836,7 @@ function renderChips(){
     '<span class="n">'+p.count.toLocaleString()+'</span>'+
     '<button data-i="'+i+'" title="Remove">×</button></span>').join('');
   box.querySelectorAll('button').forEach(b=>{
-    b.onclick = ()=>{ PICKED.splice(+b.dataset.i,1); renderChips(); search(); };
+    b.onclick = ()=>{ PICKED.splice(+b.dataset.i,1); renderChips(); save(); search(); };
   });
   $('#fprov').classList.toggle('selected', PICKED.length>0);
   $('#fprovClear').hidden = PICKED.length===0;
@@ -804,6 +850,7 @@ function choose(p){
   if(at >= 0) PICKED.splice(at,1); else PICKED.push(p);
   $('#fprov').value = '';
   renderChips();
+  save();
   closeMenu();
   // Changing the shortlist changes the query scope, not just the view, so
   // re-run rather than filtering whatever happened to be loaded.
@@ -812,6 +859,7 @@ function choose(p){
 
 function clearProviders(){
   PICKED = [];
+  save();
   $('#fprov').value = '';
   renderChips();
   search();
@@ -842,7 +890,7 @@ $('#fprov').addEventListener('keydown', e=>{
   else if(e.key==='Escape'){ closeMenu(); }
   // Backspace on an empty box removes the last chip, as in any tag input.
   else if(e.key==='Backspace' && !$('#fprov').value && PICKED.length){
-    PICKED.pop(); renderChips(); search();
+    PICKED.pop(); renderChips(); save(); search();
   }
 });
 $('#fprovClear').onclick = ()=>{ clearProviders(); $('#fprov').focus(); };
@@ -874,8 +922,11 @@ $('#q').addEventListener('keydown', e=>{ if(e.key==='Enter') search(); });
 $('#csv').onclick = csv;
 // Reload the picker when the cycle changes: provider counts differ per year,
 // and some institutions appear in one cycle but not another.
-$('#year').addEventListener('change', loadProviders);
+$('#year').addEventListener('change', ()=>{ save(); loadProviders(); });
 
+// Restore before the first provider fetch, so the names are already waiting
+// when the live list arrives.
+PENDING = restore();
 renderChips();
 loadProviders();
 </script>
