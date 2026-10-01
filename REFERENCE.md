@@ -341,14 +341,60 @@ order is undefined, so a row could move position between identical requests.
 
 `meta` holds `snapshot_<year>_<level>` (ISO timestamp) and `rows_<year>_<level>`.
 
+### provider_counts: computed once per import, not once per page load
+
+The university picker calls `/api/providers` on every page view, before any
+search has been run. Built from `courses` that is a `GROUP BY` over the whole
+cycle -- **29,774 rows scanned to return 320** -- and `/api/meta`, which the
+page also loads every time, full-scanned `courses` to list the cycles. Roughly
+60,000 rows read before the user has done anything.
+
+Neither answer changes until the data is reimported, so `import-d1.js` writes
+them into `provider_counts (year, level, provider, count)` and the Worker reads
+that instead:
+
+| Endpoint | Rows read before | After |
+|---|---|---|
+| `/api/providers` | 29,774 | 320 |
+| `/api/meta` cycles | 29,774 | 320 |
+
+The table is filled by an `INSERT ... SELECT` in the generated SQL, so the
+database derives it from the rows just inserted and it cannot drift from them.
+`/api/meta` sums the same 320 rows rather than counting `courses`.
+
+Two things to know about the fast path:
+
+- **It only applies to year+level.** That is what the picker sends. A request
+  narrowed by region, mode or qualification is not in the precomputed table and
+  still groups live -- verified returning 21 providers for Scotland.
+- **It falls back silently.** A database without the table, or with it empty,
+  drops through to the original `GROUP BY`, so the Worker is safe to deploy
+  before the table exists. Both cases tested and return identical results.
+
+`migrate-provider-counts.sql` builds it for an existing database without a
+re-import; it is idempotent and safe to re-run.
+
 ### Cost per page load
 
-A cold, unfiltered page load issues `/api/meta`, `/api/providers`, `/api/facets`
-and `/api/search`. The facets endpoint alone runs four `GROUP BY`s over the same
-filtered set (all covering-index, and now issued with `Promise.all` rather than
-four serial round-trips). Before `idx_sort` that load totalled roughly **238,000
-rows read**; D1's free tier allows 5M/day. Picking a university cuts it by two
-orders of magnitude, since every query then seeks instead of scanning.
+Opening the page, before any search, calls exactly two endpoints: `/api/meta`
+and `/api/providers`. It does **not** call `/api/facets` -- that endpoint exists
+and works, but nothing in `public/index.html` requests it, so its four
+`GROUP BY`s cost nothing in practice. (They are issued with `Promise.all`
+anyway, for whenever something does.)
+
+Rows read, 2027 undergraduate:
+
+| | Before | Now |
+|---|---|---|
+| `/api/meta` | 29,774 | 320 |
+| `/api/providers` | 29,774 | 320 |
+| **Page open, no search** | **~59,500** | **~640** |
+| then a search (+ its `COUNT`) | ~59,500 | ~600 |
+
+So an open-and-search went from roughly 119,000 rows read to about 1,200. D1's
+free tier allows 5M/day, which was about 42 such visits and is now a few
+thousand. `idx_sort` fixed the search half; `provider_counts` fixed the half
+that ran before the user had done anything.
 
 ---
 
@@ -391,6 +437,7 @@ one-off migration instead of a full re-import:
 
 ```
 npx wrangler d1 execute ucasbuster --remote --file=migrate-indexes.sql
+npx wrangler d1 execute ucasbuster --remote --file=migrate-provider-counts.sql
 ```
 
 The .sql file is an intermediate artifact, gitignored and not in the repo

@@ -221,6 +221,17 @@ async function main() {
   // Rebuild the search index over the new rows.
   parts.push("INSERT INTO courses_fts(courses_fts) VALUES('rebuild');");
 
+  // Precompute the provider list the picker loads on every page view. Doing it
+  // here means the Worker reads ~320 rows instead of grouping over the whole
+  // cycle. Computed by the database from the rows just inserted, so it cannot
+  // drift from them.
+  parts.push("DELETE FROM provider_counts WHERE year=" + q(year) +
+             " AND level=" + q(level) + ";");
+  parts.push("INSERT INTO provider_counts (year, level, provider, count) " +
+             "SELECT year, level, provider, COUNT(*) FROM courses " +
+             "WHERE year=" + q(year) + " AND level=" + q(level) +
+             " GROUP BY year, level, provider;");
+
   // Collect index statistics. Without these the planner has only guesses to
   // work with and picks idx_sort even when a provider filter would be far
   // cheaper -- a filtered search measured 16.3 ms instead of 0.9 ms. Must be

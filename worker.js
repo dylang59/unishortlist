@@ -116,6 +116,28 @@ async function handleSearch(env, p) {
 
 async function handleProviders(env, p) {
   const w = where(Object.assign({}, p, { providers: null, searchTerm: null }));
+
+  // The picker loads this on every page view, before any search, and grouping
+  // over `courses` scans the whole cycle to return ~320 rows. import-d1.js
+  // precomputes the same answer into provider_counts, so read that instead --
+  // but only when the request is scoped by year and level alone, which is what
+  // the picker sends. Anything narrower (region, mode) is not in the
+  // precomputed table and still has to be grouped live.
+  const onlyYearLevel = !p.regions && !p.studyModes && !p.qualificationLevels;
+  if (onlyYearLevel && p.academicYearId && p.studyLevel) {
+    const fast = await env.DB.prepare(
+      'SELECT provider AS name, count FROM provider_counts ' +
+      'WHERE year = ? AND level = ? ORDER BY provider'
+    ).bind(String(p.academicYearId), p.studyLevel).all().catch(() => null);
+    // Missing or not yet populated (a database imported before this table
+    // existed): fall through to the live GROUP BY rather than return nothing.
+    if (fast && fast.results && fast.results.length) {
+      return {
+        providers: fast.results.map(r => ({ name: r.name, value: r.name, count: r.count })),
+      };
+    }
+  }
+
   const rows = await env.DB.prepare(
     'SELECT provider AS name, COUNT(*) AS count FROM courses ' + w.sql +
     ' GROUP BY provider ORDER BY provider'
@@ -162,9 +184,19 @@ async function handleMeta(env) {
     .catch(() => ({ results: [] }));
   const meta = {};
   for (const r of rows.results || []) meta[r.key] = r.value;
-  const years = await env.DB.prepare(
-    'SELECT year, level, COUNT(*) AS n FROM courses GROUP BY year, level ORDER BY year DESC'
-  ).all().catch(() => ({ results: [] }));
+  // Same reasoning as handleProviders: this runs on every page load (the page
+  // reads it for the snapshot-age chip and to prune the entry-year dropdown),
+  // and counting `courses` directly means a full table scan. Summing the ~320
+  // precomputed provider rows gives an identical answer.
+  let years = await env.DB.prepare(
+    'SELECT year, level, SUM(count) AS n FROM provider_counts ' +
+    'GROUP BY year, level ORDER BY year DESC'
+  ).all().catch(() => null);
+  if (!years || !years.results || !years.results.length) {
+    years = await env.DB.prepare(
+      'SELECT year, level, COUNT(*) AS n FROM courses GROUP BY year, level ORDER BY year DESC'
+    ).all().catch(() => ({ results: [] }));
+  }
   return { meta: meta, cycles: years.results || [] };
 }
 

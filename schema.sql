@@ -65,6 +65,23 @@ CREATE VIRTUAL TABLE courses_fts USING fts5(
   content_rowid='rowid'
 );
 
+-- Per-cycle provider counts, precomputed at import.
+--
+-- /api/providers runs on every page load, before any search, and building
+-- it from `courses` means a GROUP BY over the whole cycle -- 29,774 rows
+-- scanned to return 320. The answer only changes when the data is
+-- reimported, so compute it once there and let the Worker read 320 rows.
+-- D1 bills rows read, so this is the difference that matters, not the
+-- milliseconds.
+DROP TABLE IF EXISTS provider_counts;
+CREATE TABLE provider_counts (
+  year     TEXT NOT NULL,
+  level    TEXT NOT NULL,
+  provider TEXT NOT NULL,
+  count    INTEGER NOT NULL,
+  PRIMARY KEY (year, level, provider)
+);
+
 -- Snapshot bookkeeping, so the UI can say how fresh the data is.
 DROP TABLE IF EXISTS meta;
 CREATE TABLE meta (
