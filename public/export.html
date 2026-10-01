@@ -83,6 +83,20 @@
 
 <div class="wrap">
 
+  <!-- Reaching this page on the deployed site is a dead end: every
+       /api/export/* call can only answer 501. Say so up front rather than
+       after the user has configured a run and pressed Estimate. -->
+  <div id="remoteNote" class="card" hidden
+       style="border-color:#45371a;background:#241d11;color:#e8c88e">
+    <b>Not available here.</b> Bulk export builds files on disk from the live
+    UCAS index, and this site serves a fixed snapshot from a Worker &mdash; it has
+    neither. Run it locally instead:
+    <code style="display:block;margin-top:8px;color:#f3dcb0">npm start</code>
+    <span style="font-size:12.5px">then open
+    <code>http://localhost:8787/export</code>, or use the CLI:
+    <code>npm run export -- --year 2027</code></span>
+  </div>
+
   <div class="card">
     <h2>What to pull</h2>
     <div class="row">
@@ -137,6 +151,13 @@
 
 </div>
 
+<script>
+// Bulk export cannot run on the deployed Worker; flag that before the user
+// configures anything.
+if(!/^(localhost|127\.0\.0\.1|\[::1\])$/.test(location.hostname)){
+  document.getElementById('remoteNote').hidden = false;
+}
+</script>
 <script>
 const $ = s => document.querySelector(s);
 let PROVIDERS = [], PICKED = [], ACTIVE = -1, PLAN = null;

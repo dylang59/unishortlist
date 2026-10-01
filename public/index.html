@@ -334,7 +334,11 @@
     <option value="50">Fetch 5,000</option>
   </select>
   <button class="primary" id="go">Search</button>
-  <a href="/export" style="color:var(--dim);font-size:13px;text-decoration:none;margin-left:4px">Bulk export →</a>
+  <!-- Bulk export only works against the live index, so it is hidden on the
+       deployed site where /api/export/* can only answer 501. Shown on
+       localhost, where it actually runs. -->
+  <a id="exportLink" href="/export" hidden
+     style="color:var(--dim);font-size:13px;text-decoration:none;margin-left:4px">Bulk export &rarr;</a>
 </header>
 
 <div class="bar">
@@ -1033,6 +1037,12 @@ $('#fprovClear').onclick = ()=>{ clearProviders(); $('#fprov').focus(); };
     document.querySelector('header').appendChild(el);
   }catch(e){ /* local server has no snapshot; nothing to show */ }
 })();
+
+// Bulk export needs a filesystem and the live Algolia index, neither of which
+// a Worker has, so the link appears only when running locally.
+if(/^(localhost|127\.0\.0\.1|\[::1\])$/.test(location.hostname)){
+  $('#exportLink').hidden = false;
+}
 
 $('#go').onclick = search;
 $('#q').addEventListener('keydown', e=>{ if(e.key==='Enter') search(); });

@@ -589,8 +589,12 @@ const server = http.createServer(async (req, res) => {
 
   const file = url.pathname === '/' ? 'index.html' : url.pathname.replace(/^\/+/, '');
   const root = path.join(__dirname, 'public');
-  const full = path.join(root, file);
+  let full = path.join(root, file);
   if (!full.startsWith(root)) { res.writeHead(403); res.end(); return; }
+  // Workers Assets serves /export for export.html, so the deployed site uses
+  // extensionless paths. Match that here, or links that work in production
+  // 404 locally -- which is exactly backwards for a local-only feature.
+  if (!path.extname(full) && fs.existsSync(full + '.html')) full += '.html';
   fs.readFile(full, (err, buf) => {
     if (err) { res.writeHead(404); res.end('Not found'); return; }
     const ext = path.extname(full);
