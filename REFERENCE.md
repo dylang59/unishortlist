@@ -31,9 +31,9 @@ path that calls Algolia.
 
 ### Snapshot drift is real
 
-The deployed snapshot holds **29,750** rows for 2027 undergraduate. The live
-index reports **29,767** today. 17 rows in one day — universities edit listings
-continuously. The header chip shows the snapshot date for exactly this reason;
+The deployed snapshot holds **29,774** rows for 2027 undergraduate. The live
+index reports **29,781**. A handful of rows drift apart each day — universities
+edit listings continuously. The header chip shows the snapshot date for exactly this reason;
 treat the deployed figures as "about right a month ago", not as current.
 
 ---
@@ -66,11 +66,11 @@ Undergraduate rows per cycle, live index:
 
 | Cycle | Rows |
 |---|---|
-| 2027 | 29,767 |
-| 2026 | 24,177 |
+| 2027 | 29,781 |
+| 2026 | 24,162 |
 | 2025 | 11,411 |
 
-2027 is **fully published** — 319 providers in the snapshot, including UCL (453),
+2027 is **fully published** — 320 providers in the snapshot, including UCL (453),
 St Andrews, Glasgow and Liverpool.
 
 ### Rows are course *options*, not courses
@@ -80,9 +80,9 @@ full-time and part-time is two records, each carrying exactly one
 `courseOptions` entry. Both `export.js` and `import-d1.js` read
 `courseOptions[0]`, which is therefore lossless, not a shortcut.
 
-The 2027 snapshot happens to have a unique `course_id` on every row (29,750
-rows, 29,750 distinct ids) because almost everything is full-time only: 28,844
-full-time against 906 part-time. Do not rely on that holding — it is a property
+The 2027 snapshot happens to have a unique `course_id` on every row (29,774
+rows, 29,774 distinct ids) because almost everything is full-time only: 28,869
+full-time against 905 part-time. Do not rely on that holding — it is a property
 of this cycle, not a guarantee.
 
 ### Award levels
@@ -109,13 +109,13 @@ answers.
 ### `distinct=0` is mandatory
 
 Without it the index collapses options and `nbHits` reports a **course** count,
-not a row count: **320** instead of **29,767** for 2027 undergraduate. It also
+not a row count: **321** instead of **29,781** for 2027 undergraduate. It also
 caps pagination. Every query this project issues sets `distinct=0`.
 
 ### 1,000 retrievable hits per query
 
 `hitsPerPage` caps at **100**, and `nbPages` tops out at **10** — so any single
-query yields at most 1,000 rows, silently, with no error. Paging a 29,750-row
+query yields at most 1,000 rows, silently, with no error. Paging a 29,774-row
 result set straight through gives you 1,000 rows and a clean exit code.
 
 This is why `export.js` shards by provider and then splits any overflowing
@@ -234,6 +234,48 @@ where paging gives 88%).
 
 ---
 
+## Entry difficulty
+
+The **Entry** column ranks how hard a course is to get into. It exists because
+universities publish two incompatible things — `AAB` and `112 - 120 points`
+cannot be compared as text — and both convert to UCAS tariff points, the scale
+they already share.
+
+A-level tariff: `A*`=56, `A`=48, `B`=40, `C`=32, `D`=24, `E`=16. So `AAA` is
+144, `BBB` is 120, `CCC` is 96.
+
+Six bands, with boundaries on recognisable grade equivalents rather than round
+numbers:
+
+| Band | Points | Roughly |
+|---|---|---|
+| Open | ≤ 95 | below CCC |
+| Moderate | 96–111 | around CCC |
+| Selective | 112–127 | around BBB |
+| Competitive | 128–143 | around ABB |
+| High | 144–159 | around AAA |
+| Highest | 160+ | A*AA and above |
+
+Sanity check across the snapshot: Cambridge lands entirely in High and Highest,
+Oxford almost entirely High, while Teesside and Nottingham Trent sit in Open
+and Moderate.
+
+### Two rules that are not obvious
+
+**Wide point ranges use the midpoint, not the minimum.** A course quoted
+`93 - 198 points` is not an easy one — the floor is a contextual-offer or
+access-route minimum while the typical ask is far above it. Ranking on the
+minimum put competitive London courses below foundation years. 1,701 courses
+quote a spread of 40+ points, so beyond that threshold the midpoint is used.
+Within it, the minimum is the real ask.
+
+**Grade ranges take the lower bound.** `AAB - ABB` means the typical offer is
+AAB and ABB is still acceptable, so ABB is what gets you in.
+
+Values that are not grades (`See entry requirements`, 250 rows) score `null`
+and show an empty band rather than a misleading one.
+
+
 ## D1 schema
 
 `schema.sql`. One flat `courses` table — every field the UI filters or renders
@@ -265,9 +307,9 @@ D1 database to the Worker; it carries no migrations and no seed step, and
 `worker.js` never writes to D1 — it is read-only. So deploying ships code and
 leaves the data exactly as it was.
 
-Proof from the live site: the data was imported once on 2026-09-30 19:40Z and
-has survived seven deploys since, four of them on 2026-10-01, with its
-timestamp unchanged.
+Proof from the live site: the data imported on 2026-09-30 survived seven
+deploys with its timestamp unchanged, and the 2026-10-01 refresh changed the
+data without a deploy.
 
 The data path is a separate, manual, three-step pipeline that runs **from your
 machine**:
@@ -302,7 +344,7 @@ npm run export -- --year 2027 --level Undergraduate --dry-run
 There is no automation: no cron, no CI, no scheduled Worker. A refresh happens
 only when someone runs those commands.
 
-Roughly 500 Algolia queries, a few minutes. The floor is ~300 (29,767 rows at
+Roughly 500 Algolia queries, a few minutes. The floor is ~300 (29,781 rows at
 100 per query, plus a provider list); the rest is per-provider sharding overhead
 and the prior-year and legacy-grade lookups. Course data moves over weeks, so
 monthly is plenty.
@@ -310,10 +352,26 @@ monthly is plenty.
 **Batch INSERTs small.** D1 rejects oversized statements with `SQLITE_TOOBIG`.
 200 rows per statement fails; `import-d1.js` uses **25**, giving a 27 KB largest
 statement. If you hit this after a data change, re-batch the existing `.sql`
-file rather than re-querying Algolia — that is 514 queries you do not need to
+file rather than re-querying Algolia — that is ~500 queries you do not need to
 spend twice.
 
 ---
+
+## snapshot vs bulk export
+
+Both run `exporter.runExport()`, so they fetch identically. They differ after
+that, and the difference matters:
+
+| | `npm run snapshot` | `/export` |
+|---|---|---|
+| Writes | `.sql` for D1 | `.ndjson` / `.csv` in `exports/` |
+| Scope | whole cycle, ~500 queries | filterable by provider |
+| Entry requirements | **resolved** | raw index values |
+
+That last row is the trap. `/export` writes `ucasTariff` as it comes, so every
+grade-quoting university — UCL, Oxford, Cambridge — exports as `0,0`. Only
+`import-d1.js` runs the prior-year and legacy-grade passes, so only the
+snapshot carries `AAA`/`AAB` for those providers.
 
 ## CLI
 
