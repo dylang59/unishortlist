@@ -448,11 +448,12 @@
   </div>
   <div class="field">
   <label for="depth">Results to load</label>
+  <!-- Caps at 1,000. That response is already ~0.94 MB of JSON and the Worker
+       clamps anything larger (PAGE_MAX), so the 2,000 and 5,000 options
+       silently returned 1,000 on the deployed site. -->
   <select id="depth">
     <option value="3">300 results</option>
     <option value="10">1,000 results</option>
-    <option value="20">2,000 results</option>
-    <option value="50">5,000 results</option>
   </select>
   </div>
   </div>
