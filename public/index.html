@@ -117,7 +117,7 @@
   col.w-award{width:104px}
   col.w-len{width:76px}
   col.w-start{width:112px}
-  col.w-link{width:30px}
+  col.w-link{width:62px}
   col.w-gap{width:auto}
   /* Caps the measured share so very wide screens do not stretch the two text
      columns past comfortable reading length. */
@@ -146,13 +146,14 @@
      it is the main reason to use this table at all, so it is legible at rest
      rather than appearing on hover. */
   td.c-link{text-align:center;padding:0}
-  th.c-link{font-size:9.5px !important;letter-spacing:.4px;cursor:default}
-  th.c-link:hover{background:none;color:var(--dim)}
+  th.c-link{cursor:default}
+  th.c-link:hover{background:none}
   a.ext{display:inline-flex;align-items:center;justify-content:center;
-    width:22px;height:22px;border-radius:5px;color:#7f8b9e;
-    border:1px solid transparent;
-    font-size:12px;line-height:1;text-decoration:none;transition:all .12s}
-  tbody tr:hover a.ext{color:var(--accent);border-color:#2f3f58;background:#1a2231}
+    height:19px;padding:0 9px;border-radius:99px;
+    color:#8b97a8;background:var(--panel2);border:1px solid var(--line);
+    font-size:10px;font-weight:600;letter-spacing:.5px;line-height:1;
+    text-decoration:none;transition:all .12s}
+  tbody tr:hover a.ext{color:var(--accent);border-color:#33506f;background:#1e2c42}
   a.ext:hover{color:#07101f !important;background:var(--accent) !important;
     border-color:var(--accent) !important;text-decoration:none}
 
@@ -648,8 +649,7 @@ function render(){
     h += '<th data-k="'+k+'" class="'+cls.trim()+'">'+label
       +  '<span class="car">'+(on ? (SORT.dir>0?'▲':'▼') : '▼')+'</span></th>';
   });
-  h += '<th class="c-link" title="Opens the course on ucas.com">UCAS</th>'
-    +  '<th class="c-gap"></th>'
+  h += '<th class="c-link"></th><th class="c-gap"></th>'
     +  '</tr></thead><tbody>';
   rows.forEach((r,i)=>{
     const pts = entryPoints(r), b = band(pts);
@@ -670,7 +670,8 @@ function render(){
       + '<td class="mini">'+esc(r.duration||'')+'</td>'
       + '<td class="mini">'+esc(r.start||'')+'</td>'
       + '<td class="c-link">'+(r.ucasUrl
-          ? '<a class="ext" href="'+esc(r.ucasUrl)+'" target="_blank" rel="noopener" title="Open UCAS listing in a new tab">↗</a>'
+          ? '<a class="ext" href="'+esc(r.ucasUrl)+'" target="_blank" rel="noopener"'
+            + ' title="Open this course on ucas.com">UCAS</a>'
           : '')+'</td>'
       + '<td class="c-gap"></td>'
       + '</tr>';
