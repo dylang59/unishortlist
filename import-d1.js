@@ -6,7 +6,7 @@
 //
 // Usage:
 //   node import-d1.js --year 2027 --level Undergraduate --out snapshot.sql
-//   npx wrangler d1 execute ucas --remote --file=snapshot.sql
+//   npx wrangler d1 execute ucasbuster --remote --file=snapshot.sql
 const fs = require('fs');
 const path = require('path');
 const exporter = require('./export');
@@ -237,7 +237,7 @@ async function main() {
               '  (' + ((withT / res.rows.length) * 100).toFixed(1) + '%)');
   console.log('  upstream queries  : ' + res.queries);
   console.log('\nNext:');
-  console.log('  npx wrangler d1 execute ucas --remote --file=' + out);
+  console.log('  npx wrangler d1 execute ucasbuster --remote --file=' + out);
 }
 
 if (require.main === module) {

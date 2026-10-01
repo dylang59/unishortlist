@@ -258,11 +258,49 @@ which is fast enough at 30k rows.
 
 ## Refreshing the snapshot
 
+### Deploying code and refreshing data are separate things
+
+`npm run deploy` does **not** touch the data. `wrangler.jsonc` only *binds* the
+D1 database to the Worker; it carries no migrations and no seed step, and
+`worker.js` never writes to D1 — it is read-only. So deploying ships code and
+leaves the data exactly as it was.
+
+Proof from the live site: the data was imported once on 2026-09-30 19:40Z and
+has survived seven deploys since, four of them on 2026-10-01, with its
+timestamp unchanged.
+
+The data path is a separate, manual, three-step pipeline that runs **from your
+machine**:
+
+```
+Algolia  --(1)-->  snapshot-2027.sql  --(2)-->  D1 (remote)  --(3)-->  Worker reads it
+```
+
+1. **`npm run snapshot`** queries Algolia and writes a local .sql file. It
+   never contacts D1 or Cloudflare.
+2. **`wrangler d1 execute --remote`** pushes that file into the live D1
+   database over the API. This is the only step that changes production data.
+3. The Worker picks it up on the next request. No deploy needed — the data is
+   not baked into the bundle.
+
 ```
 npm run snapshot -- --year 2027 --level Undergraduate --out snapshot-2027.sql
 npx wrangler d1 execute ucasbuster --remote --file=snapshot-2027.sql
 npm run deploy      # only if worker.js or public/ changed
 ```
+
+The .sql file is an intermediate artifact, gitignored and not in the repo
+(~21 MB, 1,190 INSERT statements). Keeping it means a failed load can be
+retried without re-querying Algolia.
+
+Check the cost before committing to a run — one query, no writes:
+
+```
+npm run export -- --year 2027 --level Undergraduate --dry-run
+```
+
+There is no automation: no cron, no CI, no scheduled Worker. A refresh happens
+only when someone runs those commands.
 
 Roughly 500 Algolia queries, a few minutes. The floor is ~300 (29,767 rows at
 100 per query, plus a provider list); the rest is per-provider sharding overhead
