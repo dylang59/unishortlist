@@ -39,13 +39,11 @@ CREATE TABLE courses (
   ucas_url      TEXT
 );
 
--- The filters the UI actually issues: year+level always, then provider,
--- award level, mode, region, and a text search over title/subjects.
+-- year+level scopes every query; provider is the UI's most selective filter.
+-- Award level, mode and region are indexed further down, together with the
+-- sort columns.
 CREATE INDEX idx_year_level      ON courses (year, level);
 CREATE INDEX idx_provider        ON courses (year, level, provider);
-CREATE INDEX idx_award_level     ON courses (year, level, award_level);
-CREATE INDEX idx_region          ON courses (year, level, region);
-CREATE INDEX idx_mode            ON courses (year, level, study_mode);
 CREATE INDEX idx_tariff          ON courses (year, level, tariff_min);
 
 -- Matches the ORDER BY every search issues, which is what lets LIMIT stop
@@ -53,6 +51,20 @@ CREATE INDEX idx_tariff          ON courses (year, level, tariff_min);
 -- then sorts the whole filtered set in a temp b-tree, so an unfiltered
 -- search reads all 29,774 rows to return 300 -- and D1 bills rows read.
 CREATE INDEX idx_sort            ON courses (year, level, provider_sort, title);
+
+-- Same shape, for the three filters the UI can narrow by. A filter alone is
+-- not enough: `idx_award_level` matched Bach(hons) fine but lost the sort
+-- order, so the whole 22,480-row match had to be sorted before LIMIT 300
+-- applied -- 44,961 rows read, worse than no filter at all. Carrying
+-- provider_sort and title in the index keeps the scan ordered, so LIMIT
+-- stops early here too.
+--
+-- These replace the narrower (year, level, <col>) indexes rather than adding
+-- to them: a prefix of each of these, so the planner uses these instead, and
+-- the facet GROUP BYs still get a covering index from them. Net cost ~5 MB.
+CREATE INDEX idx_sort_award  ON courses (year, level, award_level, provider_sort, title);
+CREATE INDEX idx_sort_mode   ON courses (year, level, study_mode, provider_sort, title);
+CREATE INDEX idx_sort_region ON courses (year, level, region, provider_sort, title);
 
 -- There is deliberately no index on title alone: the only query touching it
 -- is `lower(title) LIKE '%term%'`, which no index can serve.

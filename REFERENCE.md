@@ -309,6 +309,36 @@ then materialised and sorted the entire filtered set in a temp b-tree — which
 `LIMIT 300` cannot short-circuit. 29,774 rows read per request, and again for
 the `COUNT(*)`.
 
+### A filter index must carry the sort columns too
+
+`idx_sort` fixed the unfiltered search, but filtering made things *worse*. The
+narrow `(year, level, award_level)` index matched rows fine and then lost the
+sort order, so the whole match had to be sorted before `LIMIT 300` applied:
+
+| Filter | Matches | Rows read, before | After |
+|---|---|---|---|
+| none | 29,774 | 601 | 601 |
+| `award_level = Bach(hons)` | 22,480 (76%) | **44,961** | **601** |
+| `study_mode = Part-time` | 905 (3%) | 15,755 | 601 |
+| `region = Greater London` | 4,229 (14%) | 8,459 | 603 |
+| `region = Scotland` | 3,690 (12%) | 7,381 | 601 |
+
+Filtering by `Bach(hons)` read **more than the whole table** to return 300 rows,
+and more than issuing no filter at all. The counter-intuitive part is that a
+*less* selective filter costs more: it excludes little but still defeats the
+sort. `Full-time` (97% of rows) was already cheap at 601, because the planner
+kept `idx_sort` rather than switching.
+
+The fix is `(year, level, <col>, provider_sort, title)` -- filter column first,
+then the sort columns, so the scan stays ordered and `LIMIT` stops early:
+`idx_sort_award`, `idx_sort_mode`, `idx_sort_region`.
+
+These **replace** the narrow `(year, level, <col>)` indexes rather than adding to
+them. Each old index is a prefix of its replacement, so the planner uses the
+wider one and the facet `GROUP BY`s still get a covering index. Net cost ~5 MB
+instead of ~8 MB. `migrate-sort-indexes.sql` applies this to an existing
+database.
+
 ### ANALYZE is mandatory, not a nicety
 
 `import-d1.js` appends `ANALYZE` after the FTS rebuild. Without the statistics
@@ -452,6 +482,7 @@ one-off migration instead of a full re-import:
 ```
 npx wrangler d1 execute ucasbuster --remote --file=migrate-indexes.sql
 npx wrangler d1 execute ucasbuster --remote --file=migrate-provider-counts.sql
+npx wrangler d1 execute ucasbuster --remote --file=migrate-sort-indexes.sql
 ```
 
 The .sql file is an intermediate artifact, gitignored and not in the repo
