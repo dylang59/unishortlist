@@ -4,6 +4,13 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>UCAS search buster</title>
+<!-- SVG first for browsers that take it (one file, sharp at any size); the
+     .ico is the fallback, and also stops /favicon.ico falling through to the
+     SPA handler, which was serving the whole 70 KB page on every visit. -->
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<link rel="icon" href="/favicon.ico" sizes="any">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png">
+<meta name="theme-color" content="#101216">
 <style>
   :root{
     --bg:#101216; --panel:#191d24; --panel2:#222730; --line:#303743;

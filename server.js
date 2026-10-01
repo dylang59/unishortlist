@@ -598,9 +598,14 @@ const server = http.createServer(async (req, res) => {
   fs.readFile(full, (err, buf) => {
     if (err) { res.writeHead(404); res.end('Not found'); return; }
     const ext = path.extname(full);
+    // A favicon served as octet-stream is ignored by the browser, so the
+    // image types matter even for a local-only server.
     const type = ext === '.html' ? 'text/html; charset=utf-8'
                : ext === '.js' ? 'text/javascript'
-               : ext === '.css' ? 'text/css' : 'application/octet-stream';
+               : ext === '.css' ? 'text/css'
+               : ext === '.svg' ? 'image/svg+xml'
+               : ext === '.ico' ? 'image/x-icon'
+               : ext === '.png' ? 'image/png' : 'application/octet-stream';
     res.writeHead(200, { 'Content-Type': type });
     res.end(buf);
   });

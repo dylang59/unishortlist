@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" role="img" aria-label="UCAS search buster">
+  <!-- Favicons render at 16px, so this is drawn with deliberately few, heavy
+       shapes: a magnifier whose handle is the lime accent, cutting across it.
+       Thin strokes and any lettering vanish at that size. -->
+  <rect width="32" height="32" rx="7" fill="#101216"/>
+  <circle cx="14" cy="13.5" r="6.5" fill="none" stroke="#f2f4f8" stroke-width="2.8"/>
+  <path d="M18.8 18.3 L25.5 25" stroke="#d7ff3f" stroke-width="4" stroke-linecap="round"/>
+</svg>
