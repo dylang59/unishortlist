@@ -109,6 +109,10 @@
     background:var(--bg);color:var(--dim);font-size:11px;font-weight:600;
     text-transform:uppercase;letter-spacing:1px;padding:6px 4px}
   .starter-path{min-width:0;padding:24px;background:var(--panel);border:1px solid var(--line);border-radius:0}
+  /* Universities reads first because picking them narrows whatever you search
+     next, while a topic on its own jumps straight to every match. The accent
+     edge signposts that without making the topic panel look wrong. */
+  .university-starters{border-left:2px solid var(--action);padding-left:23px}
   /* The question is the point of this screen, so it carries the weight the
      old "Search by ..." heading did not need to. */
   .starter-path h3{font-size:21px;margin:0 0 10px;font-weight:650;letter-spacing:-.4px;
@@ -553,9 +557,20 @@
     <h2 id="welcomeTitle">Find your next course.</h2>
     <p>Start with either. Compare entry requirements side by side.</p>
     <div class="starter-paths">
+    <section class="starter-path university-starters" aria-labelledby="universitiesTitle">
+      <h3 id="universitiesTitle">Where do you want to study?</h3>
+      <p class="hint">Pick up to five, then compare their courses side by side. Everything you search next stays within them.</p>
+      <div id="universityStarters" class="examples" aria-label="University quick picks"></div>
+      <p id="universityStatus" class="hint" role="status">Loading universities…</p>
+      <div class="actions">
+        <button id="searchUniversities" class="primary" disabled>Search selected universities</button>
+        <button id="clearUniversities" disabled>Clear selection</button>
+      </div>
+      <p class="hint">UK top 20 · <a href="https://issc.co.uk/uk-university-rankings/qs/default.asp?year=2027qs" target="_blank" rel="noopener">QS World University Rankings 2027 ↗</a><br>Looking elsewhere? Use the university picker above.</p>
+    </section>
     <section class="starter-path topic-starters" aria-labelledby="topicsTitle">
       <h3 id="topicsTitle">What do you want to study?</h3>
-      <p class="hint">Pick a topic to see every course that matches, across all universities.</p>
+      <p class="hint">Jump straight to a subject. Narrowed to your universities if you picked any above.</p>
     <div class="examples" aria-label="Try a subject">
       <button data-subject="Accounting">Accounting ↗</button>
       <button data-subject="Architecture">Architecture ↗</button>
@@ -589,17 +604,6 @@
       <button data-subject="Sport">Sport ↗</button>
     </div>
     <p class="hint">Looking for something else? Enter a course keyword in the search bar.</p>
-    </section>
-    <section class="starter-path university-starters" aria-labelledby="universitiesTitle">
-      <h3 id="universitiesTitle">Where do you want to study?</h3>
-      <p class="hint">Pick up to five universities and compare their courses side by side.</p>
-      <div id="universityStarters" class="examples" aria-label="University quick picks"></div>
-      <p id="universityStatus" class="hint" role="status">Loading universities…</p>
-      <div class="actions">
-        <button id="searchUniversities" class="primary" disabled>Search selected universities</button>
-        <button id="clearUniversities" disabled>Clear selection</button>
-      </div>
-      <p class="hint">UK top 20 · <a href="https://issc.co.uk/uk-university-rankings/qs/default.asp?year=2027qs" target="_blank" rel="noopener">QS World University Rankings 2027 ↗</a><br>Looking elsewhere? Use the university picker above.</p>
     </section>
     </div>
     <p class="hint" style="margin-top:20px;max-width:none">You can combine both: select your universities, then choose a course topic.</p>
