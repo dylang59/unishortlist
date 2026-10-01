@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>UCAS Course Search</title>
+<title>UCAS search buster</title>
 <style>
   :root{
     --bg:#101216; --panel:#191d24; --panel2:#222730; --line:#303743;
@@ -54,9 +54,12 @@
     font-weight:650;box-shadow:var(--shadow)}
   button.primary:hover:not(:disabled){background:var(--action-hover);border-color:var(--action-hover)}
   button.primary:disabled{opacity:.45;cursor:default;transform:none}
-  .brand-row{display:flex;align-items:center;gap:12px;margin-bottom:16px}
-  .brand-row h1{font-size:16px}
+  .brand-row{display:flex;align-items:center;gap:10px;margin-bottom:16px}
+  .brand-row h1{font-size:16px;margin:0}
+  /* The // sits in CSS, not in the caption text, so it vanishes with the
+     caption on narrow screens instead of dangling after the title. */
   .brand-caption{color:var(--dim);font-size:12px}
+  .brand-caption::before{content:'//';margin-right:8px;color:#3d4757;font-weight:600}
   .brand-row #exportLink{margin-left:auto;color:var(--dim);font-size:12px}
   .search-row{display:grid;grid-template-columns:minmax(240px,400px) 140px minmax(220px,300px) max-content max-content;
     justify-content:start;align-items:end;gap:12px}
@@ -374,9 +377,9 @@
 
 <header>
   <div class="brand-row">
-    <h1>UCAS <span>fast search</span></h1>
     <button id="home" title="Return to starter subjects and universities">Home</button>
-    <span class="brand-caption">Find courses. Compare your options.</span>
+    <h1>UCAS <span>search buster</span></h1>
+    <span class="brand-caption">an optimized UCAS search tool</span>
     <a id="exportLink" href="/export" hidden>Bulk export &rarr;</a>
   </div>
   <div class="search-row">
