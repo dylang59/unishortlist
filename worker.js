@@ -182,7 +182,7 @@ export default {
         if (url.pathname === '/api/export/plan' || url.pathname === '/api/export/run') {
           return json({
             error: 'Bulk export runs locally only — this site serves a fixed snapshot. ' +
-                   'Use `npm start` then http://localhost:8787/export.html, or the CLI: ' +
+                   'Use `npm start` then http://localhost:8787/export, or the CLI: ' +
                    'npm run export -- --year 2027',
           }, 501);
         }
