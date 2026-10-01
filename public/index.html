@@ -60,14 +60,25 @@
      caption on narrow screens instead of dangling after the title. */
   .brand-caption{color:var(--dim);font-size:12px}
   .brand-caption::before{content:'//';margin-right:8px;color:#3d4757;font-weight:600}
+  /* Dotted underline when the loaded rows are only part of the matches, so
+     the limit is visible rather than only in the tooltip. */
+  .refine-label{color:var(--dim);font-size:12px;white-space:nowrap}
+  .refine-label.partial{border-bottom:1px dotted #5b6678;cursor:help}
   .brand-row #exportLink{margin-left:auto;color:var(--dim);font-size:12px}
-  .search-row{display:grid;grid-template-columns:minmax(240px,400px) 140px minmax(220px,300px) max-content max-content;
-    justify-content:start;align-items:end;gap:12px}
+  /* The universities column holds chips now, so it gets more room and can
+     grow taller than its neighbours. Align to the top so the Search button
+     stays level with the inputs instead of sinking with the box. */
+  .search-row{display:grid;grid-template-columns:minmax(240px,360px) 140px minmax(260px,460px) max-content max-content;
+    justify-content:start;align-items:start;gap:12px}
   .field{display:flex;flex-direction:column;gap:6px;min-width:0}
   .field>label{font-size:12px;font-weight:500;color:#bac4d3}
   .field input,.field select{width:100%;min-width:0;height:42px;font-size:14px}
+  /* The tag box sizes to its chips rather than to a fixed height, and the
+     input inside it must not keep the 42px meant for standalone fields. */
+  .field .combo .tags{min-height:42px}
+  .field .combo .tags input{height:auto;min-height:26px;width:auto}
   #q{min-width:0}
-  .search-row>button{height:42px;padding:0 20px;font-size:14px}
+  .search-row>button{height:42px;padding:0 20px;font-size:14px;margin-top:24px}
   #moreFilters{color:var(--dim);background:transparent;padding:0 12px}
   #moreFilters[aria-expanded="true"]{color:var(--accent);border-color:var(--accent)}
   .advanced{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;max-width:1080px;
@@ -339,8 +350,18 @@
 
   /* Provider picker */
   .combo{position:relative;display:inline-block}
-  .combo input{padding-right:24px}
-  .combo .clear{position:absolute;right:2px;top:50%;transform:translateY(-50%);
+  /* The bordered box is the wrapper, not the input: chips and the text field
+     sit inside it together, and it grows as universities are added. */
+  .combo .tags{display:flex;flex-wrap:wrap;align-items:center;gap:5px;
+    background:var(--panel2);border:1px solid var(--line);border-radius:6px;
+    padding:4px 24px 4px 5px;min-height:33px;cursor:text;
+    transition:border-color .12s,background .12s}
+  .combo .tags:hover{border-color:#333d4d}
+  .combo .tags:focus-within{border-color:var(--accent);background:#1d2531}
+  .combo .tags input{flex:1;min-width:90px;width:auto;
+    background:none;border:none;padding:2px 4px;border-radius:0}
+  .combo .tags input:hover,.combo .tags input:focus{background:none;border:none}
+  .combo .clear{position:absolute;right:2px;top:5px;
     background:none;border:none;color:var(--dim);font-size:16px;line-height:1;
     padding:2px 6px;cursor:pointer}
   .combo .clear:hover{color:var(--text)}
@@ -356,14 +377,16 @@
   .menu .opt .alias{display:block;color:var(--dim);font-size:11px;margin-top:1px}
   .menu .none{padding:10px;color:var(--dim);font-size:12.5px}
   .menu mark{background:rgba(91,157,255,.28);color:var(--text);border-radius:2px}
-  .selected{border-color:#7e9636}
+  /* The green edge marks 'this filter is active'. It sits on the wrapper now,
+     since the input itself no longer draws a border. */
+  .combo .tags.selected{border-color:#7e9636}
   /* Selected universities, shown as removable chips next to the picker */
-  .pchips{display:inline-flex;flex-wrap:wrap;gap:5px;align-items:center}
+  .pchips{display:contents}
   .pchip{background:var(--action-tint);border:1px solid #61752a;border-radius:99px;
     padding:2px 5px 2px 10px;font-size:12px;display:inline-flex;align-items:center;
     gap:6px;max-width:230px;transition:border-color .12s}
   .pchip:hover{border-color:var(--action)}
-  .pchip .nm{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .pchip .nm{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:150px}
   .pchip .n{color:var(--dim);font-size:11px}
   .pchip button{background:none;border:none;color:var(--dim);cursor:pointer;
     padding:0 1px;font-size:14px;line-height:1}
@@ -398,9 +421,15 @@
   </div>
   <div class="field university-field">
     <label for="fprov">Universities</label>
+    <!-- Chips live inside the control, so the field shows its own state. They
+         used to sit on a row of their own below, which left the input looking
+         empty while five universities were selected. -->
     <div class="combo">
-      <input id="fprov" placeholder="Any university" autocomplete="off"
-             role="combobox" aria-expanded="false" aria-autocomplete="list" aria-controls="provlist">
+      <div class="tags" id="tagBox">
+        <span id="provChips" class="pchips"></span>
+        <input id="fprov" placeholder="Any university" autocomplete="off"
+               role="combobox" aria-expanded="false" aria-autocomplete="list" aria-controls="provlist">
+      </div>
       <button id="fprovClear" class="clear" title="Clear all universities" hidden>×</button>
       <div id="provlist" class="menu" role="listbox" hidden></div>
     </div>
@@ -408,7 +437,6 @@
   <button class="primary" id="go">Search</button>
   <button id="moreFilters" aria-expanded="false" aria-controls="advancedFilters">More filters</button>
   </div>
-  <div id="provChips" class="pchips"></div>
   <div id="advancedFilters" class="advanced" hidden>
   <div class="field">
   <label for="qual">Qualification</label>
@@ -463,7 +491,10 @@
 </header>
 
 <div class="bar" hidden>
-  <span style="color:var(--dim);font-size:12px">Refine results</span>
+  <!-- These three filter the rows already loaded, in the browser; they never
+       re-query. The label says so, because "Refine results" next to
+       "300 loaded of 1,156 matches" read as if it searched all 1,156. -->
+  <span id="refineLabel" class="refine-label">Filter loaded</span>
   <input id="fsub" aria-label="Filter results by subject" placeholder="Subject…" size="14">
   <input id="ftown" aria-label="Filter results by town or region" placeholder="Town / region…" size="14">
   <label for="ftar">Min tariff</label>
@@ -551,7 +582,7 @@
 
 <script>
 const $ = s => document.querySelector(s);
-let ROWS = [], SORT = { key:'provider', dir:1 };
+let ROWS = [], TOTAL = null, SORT = { key:'provider', dir:1 };
 const HOME_HTML = $('#out').innerHTML;
 let searchVersion = 0;
 
@@ -626,6 +657,7 @@ async function search(){
     progress(80);
     ROWS = data.courses || [];
     const total = data.total;
+    TOTAL = total;
     $('#cStat').innerHTML = '<b>'+ROWS.length+'</b> loaded of <b>'+(total==null?'?':total.toLocaleString())+'</b> matches'
       + (data.timedOut ? ' <span style="color:var(--warn)">(partial — narrow the search for full coverage)</span>' : '');
 
@@ -809,10 +841,31 @@ const esc = s => String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&l
 // text-align can reach the table.
 function msg(cls, html){ $('#out').innerHTML = '<div class="'+cls+'">'+html+'</div>'; }
 
+// Say what these three boxes actually filter. They work on the rows already
+// in the browser, so when the search was truncated they cannot reach the
+// rest -- which is exactly when "Refine results" misled: it sat beside
+// "300 loaded of 1,156 matches" looking like it searched all 1,156.
+function refineLabel(showing){
+  const el = $('#refineLabel');
+  if(!el) return;
+  const loaded = ROWS.length;
+  const partial = TOTAL != null && TOTAL > loaded;
+  const n = showing != null && showing !== loaded
+    ? showing.toLocaleString() + ' of ' + loaded.toLocaleString()
+    : loaded.toLocaleString();
+  el.textContent = 'Filter these ' + n;
+  el.classList.toggle('partial', partial);
+  el.title = partial
+    ? 'These boxes filter only the ' + loaded.toLocaleString() + ' rows loaded, not all ' +
+      TOTAL.toLocaleString() + ' matches. Load more, or narrow the search above, to reach the rest.'
+    : 'Filters the loaded rows in your browser. Every match is loaded, so this covers them all.';
+}
+
 function render(){
   const rows = visible();
   $('#csv').disabled = !rows.length;
   VIEW = rows;
+  refineLabel(rows.length);
   if(!rows.length){
     msg('empty','No courses match those filters.');
     closePanel();
@@ -1249,7 +1302,7 @@ function renderChips(){
   box.querySelectorAll('button').forEach(b=>{
     b.onclick = ()=>{ PICKED.splice(+b.dataset.i,1); renderChips(); save(); searchAfterProviderChange(); };
   });
-  $('#fprov').classList.toggle('selected', PICKED.length>0);
+  $('#tagBox').classList.toggle('selected', PICKED.length>0);
   $('#fprovClear').hidden = PICKED.length===0;
   $('#fprov').placeholder = PICKED.length ? 'Add another university…' : 'Any university';
   renderUniversityStarters();
@@ -1307,6 +1360,13 @@ $('#fprov').addEventListener('keydown', e=>{
   }
 });
 $('#fprovClear').onclick = ()=>{ clearProviders(); $('#fprov').focus(); };
+// The box is bigger than the input now, so clicking the padding around the
+// chips should focus the field, as it would in any tag input.
+$('#tagBox').addEventListener('mousedown', e=>{
+  if(e.target.closest('.pchip') || e.target === $('#fprov')) return;
+  e.preventDefault();
+  $('#fprov').focus();
+});
 
 // When served from a snapshot (the deployed Worker), say how fresh it is so
 // nobody mistakes it for live UCAS data, and drop any entry year the snapshot
