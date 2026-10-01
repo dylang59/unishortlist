@@ -1298,12 +1298,38 @@ $('#fprov').addEventListener('keydown', e=>{
 $('#fprovClear').onclick = ()=>{ clearProviders(); $('#fprov').focus(); };
 
 // When served from a snapshot (the deployed Worker), say how fresh it is so
-// nobody mistakes it for live UCAS data.
+// nobody mistakes it for live UCAS data, and drop any entry year the snapshot
+// does not actually hold.
 (async function snapshotAge(){
   try{
     const r = await fetch('/api/meta', {method:'POST',headers:{'Content-Type':'application/json'},body:'{}'});
     if(!r.ok) return;
     const d = await r.json();
+
+    // A snapshot carries one cycle, not all three. Offering the others gives
+    // an empty table that reads as a broken search rather than an empty year,
+    // so keep only the years /api/meta reports. Driven by the data, so a
+    // snapshot covering more cycles needs no change here.
+    const have = new Set((d.cycles||[]).map(c=>String(c.year)));
+    if(have.size){
+      const sel = $('#year');
+      const was = sel.value;
+      [...sel.options].forEach(o=>{ if(o.value && !have.has(o.value)) o.remove(); });
+      // "Any year" is only meaningful with more than one cycle to span.
+      if(have.size < 2){
+        const any = [...sel.options].find(o=>o.value === '');
+        if(any) any.remove();
+      }
+      if(sel.value !== was){
+        // The stored year is gone, so the saved shortlist was for a cycle this
+        // snapshot does not have. Re-resolve it against the year we fell back
+        // to instead of leaving the picker showing counts for nothing.
+        PENDING = restore();
+        renderChips();
+        loadProviders();
+      }
+    }
+
     const keys = Object.keys(d.meta||{}).filter(k=>k.startsWith('snapshot_'));
     if(!keys.length) return;
     const when = new Date(d.meta[keys[0]]);
