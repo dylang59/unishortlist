@@ -82,12 +82,44 @@ function where(p) {
   return { sql: sql.length ? 'WHERE ' + sql.join(' AND ') : '', args: args };
 }
 
+// The row count for a result set, from provider_counts where that table can
+// answer it. COUNT(*) over `courses` reads the whole filtered set to produce one
+// number -- 28,000 rows for an unfiltered search -- and D1 bills rows read.
+//
+// Only the filters provider_counts is keyed by can be served this way: year,
+// level, and provider (an OR over the same column the table is grouped on, so
+// summing the matching rows is exactly equivalent). A request narrowed by
+// region, mode, qualification or a search term has to be counted live.
+async function countFor(env, p, w) {
+  const narrowed = (p.regions && p.regions.length) ||
+                   (p.studyModes && p.studyModes.length) ||
+                   (p.qualificationLevels && p.qualificationLevels.length) ||
+                   (p.searchTerm && p.searchTerm.trim());
+  if (!narrowed && p.academicYearId && p.studyLevel) {
+    const picked = (p.providers || []).filter(Boolean);
+    // One statement, so an empty table is distinguishable from a provider with
+    // no courses: `have` counts the cycle's rows regardless of the IN filter.
+    // Without that, an empty provider_counts made a filtered search report zero
+    // courses instead of falling back -- it looked like a working search with no
+    // results, which is the worst way for this to fail.
+    const sql = 'SELECT SUM(CASE WHEN 1' +
+          (picked.length ? ' AND provider IN (' + picked.map(() => '?').join(',') + ')' : '') +
+          ' THEN count ELSE 0 END) AS n, COUNT(*) AS have FROM provider_counts ' +
+          'WHERE year = ? AND level = ?';
+    const row = await env.DB.prepare(sql)
+      .bind(...picked, String(p.academicYearId), p.studyLevel).first().catch(() => null);
+    if (row && row.have) return row.n || 0;
+  }
+  const countRow = await env.DB.prepare('SELECT COUNT(*) AS n FROM courses ' + w.sql)
+    .bind(...w.args).first();
+  return countRow ? countRow.n : 0;
+}
+
 async function handleSearch(env, p) {
   const w = where(p);
   const limit = Math.min(Number(p.limit) || 300, PAGE_MAX);
 
-  const countRow = await env.DB.prepare('SELECT COUNT(*) AS n FROM courses ' + w.sql)
-    .bind(...w.args).first();
+  const total = await countFor(env, p, w);
 
   // With a shortlist of universities, a plain alphabetical LIMIT can cut the
   // last ones off entirely — UCL sorts last, so it looked like it had no
@@ -106,9 +138,9 @@ async function handleSearch(env, p) {
   const rows = await env.DB.prepare(sql).bind(...w.args, limit).all();
 
   return {
-    total: countRow ? countRow.n : 0,
+    total: total,
     fetched: (rows.results || []).length,
-    truncated: (countRow ? countRow.n : 0) > limit,
+    truncated: total > limit,
     courses: (rows.results || []).map(toCourse),
     facets: {},
   };

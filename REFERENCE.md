@@ -389,7 +389,21 @@ Rows read, 2027 undergraduate:
 | `/api/meta` | 29,774 | 320 |
 | `/api/providers` | 29,774 | 320 |
 | **Page open, no search** | **~59,500** | **~640** |
-| then a search (+ its `COUNT`) | ~59,500 | ~600 |
+| `/api/search` total count | 29,774 | 320 |
+| `/api/search` row fetch | 29,774 | ~300 |
+| **then an unfiltered search** | **~59,500** | **~620** |
+
+The `total` count is served from `provider_counts` too, by the same rule: year,
+level and provider only, since `providers` is an OR over the very column the
+table is grouped on. Anything narrowed by region, mode, qualification or a
+search term is counted live, because the table cannot answer it.
+
+That count query carries one subtlety. `SUM` over no matching rows returns
+`NULL`, which is indistinguishable from an empty table -- so counting the
+cycle's rows in the same statement (`COUNT(*) AS have`) is what separates "this
+provider has no courses" from "this table was never populated". Getting it wrong
+made a filtered search report zero results on a database missing the table,
+which looks like a working search rather than a broken one.
 
 So an open-and-search went from roughly 119,000 rows read to about 1,200. D1's
 free tier allows 5M/day, which was about 42 such visits and is now a few
