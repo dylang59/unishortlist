@@ -39,8 +39,10 @@ CREATE TABLE courses (
   ucas_url      TEXT,
   ukprn         TEXT,               -- UK provider reference number
   course_url    TEXT,               -- university's own course page (Discover Uni)
-  course_link   TEXT                -- 'exact', or 'base' when matched on the
+  course_link   TEXT,               -- 'exact', or 'base' when matched on the
                                     -- base course of a variant; NULL if none
+  kis_key       TEXT                -- the matched Discover Uni course,
+                                    -- PUBUKPRN|UKPRN|KISCOURSEID|KISMODE
 );
 
 -- year+level scopes every query; provider is the UI's most selective filter.
@@ -96,6 +98,16 @@ CREATE TABLE provider_counts (
   provider TEXT NOT NULL,
   count    INTEGER NOT NULL,
   PRIMARY KEY (year, level, provider)
+);
+
+-- Discover Uni figures for the course panel, one JSON record per Discover Uni
+-- course (see hesa.js for its shape). Read one row at a time, by key, when a
+-- panel opens; many UCAS variants share one record, so it is not folded into
+-- courses.
+DROP TABLE IF EXISTS hesa;
+CREATE TABLE hesa (
+  kis_key TEXT PRIMARY KEY,
+  data    TEXT NOT NULL
 );
 
 -- Snapshot bookkeeping, so the UI can say how fresh the data is.

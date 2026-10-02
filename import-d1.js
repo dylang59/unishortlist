@@ -12,6 +12,7 @@ const fs = require('fs');
 const path = require('path');
 const exporter = require('./export');
 const courselinks = require('./courselinks');
+const hesaData = require('./hesa');
 
 const APPID = process.env.ALGOLIA_APP || 'Y3QRV216KL';
 const KEY = process.env.ALGOLIA_KEY || 'c0f72e5c62250ac258c2cf4a3896c19d';
@@ -163,14 +164,14 @@ function toRow(h, tariffs, grades, links) {
     q('https://www.ucas.com/explore/courses/' + h.courseId + (slug ? '/' + slug : '') +
       '?studyYear=' + (h.academicYearId || '')),
     q(p.ukprn),
-    q(link && link.url), q(link && link.how),
+    q(link && link.url), q(link && link.how), q(link && link.kis),
   ].join(',');
 }
 
 const COLS = '(rowid_key,course_id,year,level,title,slug,provider,provider_sort,town,region,' +
              'country,postcode,lat,lng,award,award_full,award_level,study_mode,duration,' +
              'start_date,entry_points,app_code,tariff_min,tariff_max,tariff_text,tariff_from,' +
-             'tariff_grades,subjects,provider_url,ucas_url,ukprn,course_url,course_link)';
+             'tariff_grades,subjects,provider_url,ucas_url,ukprn,course_url,course_link,kis_key)';
 
 async function main() {
   const args = process.argv.slice(2);
@@ -186,6 +187,7 @@ async function main() {
   const links = courselinks.load(get('--hesa'));
   if (links) console.log('Discover Uni: ' + links.courses.toLocaleString() + ' courses with a page link');
   else console.log('Discover Uni dataset not found; course links will be empty (see courselinks.js)');
+  const hesa = links && hesaData.load(get('--hesa'));
 
   console.log('Pulling ' + year + ' ' + level + ' from Algolia…');
   const res = await exporter.runExport(
@@ -234,6 +236,17 @@ async function main() {
     parts.push('INSERT OR REPLACE INTO courses ' + COLS + ' VALUES\n' + values + ';');
   }
 
+  // Discover Uni figures for the course panel, one record per course the rows
+  // link to. After the courses, since the last statement prunes records that
+  // no row references.
+  let hesaCount = 0;
+  if (hesa) {
+    const keys = new Set(res.rows.map(h => linkFor(h, links)).filter(Boolean).map(m => m.kis));
+    const h = hesaData.toSql(hesa, keys);
+    parts.push(...h.sql);
+    hesaCount = h.count;
+  }
+
   parts.push("INSERT OR REPLACE INTO meta (key,value) VALUES " +
              "('snapshot_" + year + '_' + level.toLowerCase() + "'," +
              q(new Date().toISOString()) + ");");
@@ -278,6 +291,7 @@ async function main() {
     courselinks.report(res.rows.map(h => ({
       provider: (h.provider || {}).name, ukprn: (h.provider || {}).ukprn, m: linkFor(h, links),
     })), links);
+    console.log('  Discover Uni data : ' + hesaCount.toLocaleString() + ' courses');
   }
   console.log('  upstream queries  : ' + res.queries);
   console.log('\nNext:');

@@ -424,6 +424,62 @@
     main.split{padding-right:0}
   }
 
+  /* ---- Discover Uni figures in the panel ------------------------------
+     Most figures are pooled beyond the course, so every block says what it
+     covers: a chip for the level, then students and year underneath. Green
+     is this course alone, amber the subject at this university. */
+  .hsub{display:flex;align-items:center;gap:8px;margin:16px 0 7px;font-size:12.5px;color:var(--text)}
+  .hsub:first-child{margin-top:0}
+  .hsub .scopechip{margin-left:auto}
+  .scopechip{display:inline-flex;align-items:center;gap:5px;font-size:10.5px;font-weight:600;
+    padding:1px 6px;border:1px solid;letter-spacing:.2px;white-space:nowrap;cursor:help}
+  .scopechip::before{content:"";width:6px;height:6px;background:currentColor}
+  .scopechip.course{color:#2bd4a4;border-color:#1f5a4b;background:#12302a}
+  .scopechip.subj{color:#ffb020;border-color:#5c4513;background:#33280f}
+  .scope{font-size:11px;color:#7d8899;margin-top:7px;line-height:1.45}
+  .hl{font-size:13px;line-height:1.45;margin:8px 0 0}
+  .hl b{font-weight:650}
+  .hlegend{display:flex;flex-wrap:wrap;gap:4px 14px;font-size:11px;color:var(--dim);margin-top:5px}
+  .hlegend i{display:inline-block;vertical-align:middle;margin-right:5px}
+  .hempty{border:1px dashed var(--line);padding:10px 12px;font-size:12.5px;color:var(--dim);
+    line-height:1.5;margin-bottom:4px}
+  .hload{font-size:12px;color:var(--dim);padding:4px 0}
+  .meters{display:grid;grid-template-columns:minmax(0,1fr) 36px 40px;gap:6px 10px;
+    align-items:center;font-size:12.5px}
+  .meters .val{text-align:right;font-variant-numeric:tabular-nums;font-weight:600}
+  .meters .cmp{text-align:right;font-variant-numeric:tabular-nums;color:#7d8899;font-size:11px}
+  .meters .colhead{font-size:10px;color:#7d8899;text-transform:uppercase;letter-spacing:.5px;text-align:right}
+  .track{grid-column:1 / -1;height:5px;background:var(--line2);position:relative;margin:-3px 0 4px}
+  .track .fill{position:absolute;inset:0 auto 0 0;background:var(--accent)}
+  .track .tick{position:absolute;top:-3px;bottom:-3px;width:2px;background:var(--dim)}
+  .stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(110px,1fr));gap:1px;
+    background:var(--line);border:1px solid var(--line)}
+  .stat{background:var(--panel2);padding:9px 10px}
+  .stat .n{font-size:19px;font-weight:650;font-variant-numeric:tabular-nums;letter-spacing:-.2px}
+  .stat .l{font-size:11px;color:var(--dim);line-height:1.3;margin-top:2px}
+  .stat .c{font-size:10.5px;color:#7d8899;margin-top:4px;font-variant-numeric:tabular-nums}
+  .sal{display:grid;grid-template-columns:62px minmax(0,1fr) 52px;gap:4px 10px;align-items:center;font-size:12px}
+  .sal .when{color:var(--dim)}
+  .sal .med{text-align:right;font-weight:650;font-variant-numeric:tabular-nums}
+  .salbar{position:relative;height:18px}
+  .salbar .axis{position:absolute;left:0;right:0;top:8px;height:1px;background:var(--line)}
+  .salbar .iqr{position:absolute;top:4px;height:9px;background:#2f4f7a}
+  .salbar .dot{position:absolute;top:2px;width:3px;height:13px;background:var(--accent);margin-left:-1px}
+  .salbar .sec{position:absolute;top:0;width:2px;height:17px;background:var(--dim);margin-left:-1px}
+  .salaxis{grid-column:2;display:flex;justify-content:space-between;font-size:10px;color:#7d8899;
+    font-variant-numeric:tabular-nums}
+  .stack{display:flex;height:9px;margin:4px 0 6px;background:var(--line2)}
+  .stack span{display:block}
+  .jobs{list-style:none;margin:10px 0 0;padding:0;font-size:12.5px}
+  .jobs li{display:flex;justify-content:space-between;gap:10px;padding:4px 0;border-top:1px solid var(--line2)}
+  .jobs li:first-child{border-top:0}
+  .jobs b{font-variant-numeric:tabular-nums;font-weight:600}
+  .acc{font-size:12.5px;line-height:1.45;margin-top:9px;color:var(--text)}
+  .acc + .acc{margin-top:6px}
+  /* Headings open these slots, so the generic first-child reset would butt
+     them against the content above. */
+  #h-entry > .psec:first-child, #h-main > .psec:first-child{margin-top:18px}
+
   /* Provider picker */
   /* block, not inline-block: inside a grid cell the combo must take the cell's
      width so the tag box wraps, instead of sizing to its chips and spilling
@@ -1223,7 +1279,9 @@ function fill(r){
     + (pb ? '<div style="margin-top:9px"><span class="bnd '+pb.key+'"><i></i>'
             + esc(pb.label)+'</span> <span class="sub">'+esc(pb.hint)
             + ' · '+pp+' points</span></div>' : '')
-    + '</div>';
+    + '</div>'
+    // Discover Uni figures land in these three slots once fetched.
+    + '<div id="h-entry"></div>';
 
   const extra = [['A level',r.aLevel],['BTEC',r.btec],['IB',r.ib],
                  ['Scottish Higher',r.scottishHigher]]
@@ -1238,7 +1296,7 @@ function fill(r){
     + row('Starts', r.start)
     + row('Entry', (r.entryPoints||[]).join(', '))
     + row('Year', r.year)
-    + '</dl>';
+    + '</dl><div id="h-course"></div><div id="h-main"></div>';
 
   const where = [r.town, r.region, r.country].filter(Boolean).join(', ');
   h += '<p class="psec">Location</p><dl class="kv">'
@@ -1257,6 +1315,234 @@ function fill(r){
 
   $('#pbody').innerHTML = h;
   $('#pbody').scrollTop = 0;
+  hesa(r);
+}
+
+// ---- Discover Uni figures ---------------------------------------------
+// Fetched when a panel opens: one stored record per Discover Uni course, so
+// variants of one course share it. See hesa.js for the record's shape.
+const HESA = new Map();
+
+async function hesa(r){
+  if(!r.kisKey){ $('#h-entry').innerHTML = hesaNone(r); return; }
+  let d = HESA.get(r.kisKey);
+  if(d === undefined){
+    $('#h-entry').innerHTML = '<div class="hload">Loading Discover Uni figures…</div>';
+    try { d = await post('/api/hesa', {key:r.kisKey}); HESA.set(r.kisKey, d); }
+    catch(e){ d = null; }
+    if(SEL !== r) return;   // moved on while it loaded
+  }
+  if(!d){ $('#h-entry').innerHTML = hesaNone(r); return; }
+  $('#h-entry').innerHTML = hesaEntry(d, r);
+  $('#h-course').innerHTML = hesaCourse(d);
+  $('#h-main').innerHTML = hesaMain(d, r);
+}
+
+function hesaNone(r){
+  return '<p class="psec">Student data</p><div class="hempty">No Discover Uni record matched this course. '
+    + 'It may be new for '+esc(r.year)+' or listed under a different title. '
+    + '<a href="https://discoveruni.gov.uk/" target="_blank" rel="noopener">Search Discover Uni &nearr;</a></div>';
+}
+
+// AGG codes: first digit the years pooled, second the level (4 = this
+// course; 3, 2, 1 = ever wider subject groups at this provider).
+function scopeChip(b){
+  const lvl = String(b.a||'')[1], two = String(b.a||'')[0] === '2';
+  const own = lvl === '4';
+  const tip = own
+    ? 'Figures for this course alone' + (two ? ', over two years' : '')
+    : 'Too few students to report this course alone, so HESA pooled it with '
+      + (lvl === '3' ? 'its subject' : 'a wider subject group') + ' (' + b.s + ') at this university'
+      + (two ? ', over two years' : '');
+  const label = own ? 'This course' : lvl === '3' ? 'Subject at this uni' : 'Wider subject at this uni';
+  return '<span class="scopechip '+(own?'course':'subj')+'" title="'+esc(tip)+'">'+label+'</span>';
+}
+const ukTip = b => 'Median across UK providers, subject group ' + b.bs;
+const pct = v => v == null ? '—' : v + '%';
+const money = v => '£' + (v % 1000 ? (v/1000).toFixed(1) : v/1000) + 'k';
+const hsub = (label, b) => '<div class="hsub"><span>'+label+'</span>'+(b ? scopeChip(b) : '')+'</div>';
+const scopeLine = parts => '<div class="scope">'+parts.filter(Boolean).join(' · ')+'</div>';
+
+// HESA's tariff bins are 16 points wide from 96, the same boundaries as the
+// Entry bands, so each bar takes its band's colour. Everything below 96 is
+// merged into one bar.
+const BAND_FILL = ['#2f6f5e','#3b7f8c','#4a7fb5','#6b74c4','#9668bf','#c2568f'];
+const BAND_INK = ['#7fb8a6','#84bcc8','#92b6dc','#a7abe4','#c4a3e0','#e49bc0'];
+const merge = v => v ? [v.slice(0,4).reduce((a,x)=>a+(x||0),0)].concat(v.slice(4)) : null;
+const BINS = [0,96,112,128,144,160,176,192,208,224,240];
+
+function hesaEntry(d, r){
+  if(!d.tar && !d.ent) return '';
+  let h = '<p class="psec">Who actually got in</p>';
+  if(d.tar){
+    const here = merge(d.tar.v), uk = merge(d.tar.b), asks = entryPoints(r);
+    h += hsub('Entrants’ UCAS points', d.tar) + tariffChart(here, uk, asks);
+    h += '<div class="hlegend"><span><i style="width:10px;height:10px;background:'+BAND_FILL[4]+'"></i>Entrants here</span>'
+      + (uk ? '<span title="'+esc(ukTip(d.tar))+'"><i style="width:12px;border-top:2px solid var(--dim)"></i>UK, same subject</span>' : '')
+      + (asks ? '<span><i style="height:11px;border-left:2px dashed var(--action)"></i>Asks '+asks+'</span>' : '')
+      + '</div>';
+    // Shares are of all entrants, and entrants with no UCAS points recorded
+    // are in no bar, so a course can total well under 100 (St Andrews' joint
+    // degrees: about 40). Why they have none is not in the data -- the same
+    // course reports 86% entering with A-levels or Highers -- so the panel
+    // states the share without guessing. The median and the share below the
+    // asking figure are taken among those with points.
+    const total = here.reduce((a,x)=>a+x, 0);
+    const some = total < 90;
+    let cum = 0, mid = -1;
+    here.forEach((x,i)=>{ if(mid < 0 && (cum += x) >= total/2) mid = i; });
+    const lines = [];
+    if(some) lines.push('<b>'+Math.max(0, 100-total)+'%</b> of entrants have no UCAS points recorded.');
+    if(total && mid >= 0) lines.push('The middle entrant'+(some ? ' with points' : '')+' had <b>'
+      + (mid === 0 ? 'under 96' : mid === here.length-1 ? '240+' : BINS[mid]+'–'+(BINS[mid]+15))
+      + ' points</b>.');
+    if(asks && total){
+      let below = 0, exact = false;
+      here.forEach((x,i)=>{ const hi = i === 0 ? 96 : BINS[i]+16; if(hi <= asks) below += x; if(hi === asks) exact = true; });
+      if(asks === 96) exact = true;
+      // Totals of 90-110 are HESA's 5% rounding, not missing entrants.
+      const share = some ? Math.round(below / total * 100) : below;
+      if(share > 0) lines.push((exact ? '' : 'At least ') + '<b>'+share+'%</b>'+(some ? ' of them' : '')
+        + ' had fewer than the '+asks+' asked.');
+    }
+    if(lines.length) h += '<p class="hl">'+lines.join(' ')+'</p>';
+    h += scopeLine([d.tar.n ? d.tar.n+' entrants' : '', d.tar.y, 'HESA rounds to 5%']);
+  }
+  if(d.ent && d.ent.v){
+    const names = ['A-levels or Highers','a baccalaureate','an Access course','a foundation course',
+                   'a degree','other higher education','other qualifications','no formal qualifications'];
+    const top = d.ent.v.map((x,i)=>[x,names[i]]).filter(x=>x[0]).sort((a,b)=>b[0]-a[0]).slice(0,3);
+    if(top.length) h += '<p class="hl sub" style="margin-top:10px">Came in with '
+      + top.map(t=>esc(t[1])+' <b>'+t[0]+'%</b>').join(', ') + '.</p>';
+  }
+  return h;
+}
+
+function tariffChart(here, uk, asks){
+  const W = 424, H = 132, L = 28, R = 4, T = 8, B = 20;
+  const pw = W-L-R, ph = H-T-B, n = here.length, bw = pw/n, gap = 3;
+  const top = Math.max(10, Math.ceil(Math.max(...here, ...(uk||[0]))/10)*10);
+  const y = v => T + ph - v/top*ph;
+  let s = '<svg viewBox="0 0 '+W+' '+H+'" width="100%" role="img" aria-label="Entrants by UCAS points">';
+  for(let v = 0; v <= top; v += top > 40 ? 20 : 10){
+    s += '<line x1="'+L+'" x2="'+(W-R)+'" y1="'+y(v)+'" y2="'+y(v)+'" stroke="#1e242e"/>'
+      +  '<text x="'+(L-5)+'" y="'+(y(v)+3.5)+'" text-anchor="end" font-size="9.5" fill="#7d8899">'+v+'%</text>';
+  }
+  here.forEach((v,i)=>{
+    const x = L + i*bw, bi = Math.min(5, i);
+    if(v > 0) s += '<rect x="'+(x+gap/2)+'" y="'+y(v)+'" width="'+(bw-gap)+'" height="'+(y(0)-y(v))+'" fill="'+BAND_FILL[bi]+'"><title>'+v+'%</title></rect>';
+    if(uk) s += '<line x1="'+(x+gap/2)+'" x2="'+(x+bw-gap/2)+'" y1="'+y(uk[i])+'" y2="'+y(uk[i])+'" stroke="#a4aebd" stroke-width="2"/>';
+    s += '<text x="'+(x+bw/2)+'" y="'+(H-6)+'" text-anchor="middle" font-size="9.5" fill="'+BAND_INK[bi]+'">'
+      +  (i === 0 ? '<96' : i === n-1 ? '240+' : BINS[i]) + '</text>';
+  });
+  if(asks){
+    const i = asks < 96 ? 0 : Math.min(n-1, 1 + Math.floor((asks-96)/16));
+    const frac = i === 0 ? asks/96 : i === n-1 ? 0 : (asks - BINS[i])/16;
+    const ax = L + (i + frac)*bw;
+    s += '<line x1="'+ax+'" x2="'+ax+'" y1="'+(T-4)+'" y2="'+y(0)+'" stroke="#d7ff3f" stroke-width="1.5" stroke-dasharray="3 3"/>';
+  }
+  return s + '<line x1="'+L+'" x2="'+(W-R)+'" y1="'+y(0)+'" y2="'+y(0)+'" stroke="#303743"/></svg>';
+}
+
+// Accreditation and the year-out options, under the course facts.
+function hesaCourse(d){
+  const opt = ['', 'optional', 'built in'];
+  const f = d.f || [];
+  const rows = [['Placement year', f[0]], ['Year abroad', f[1]], ['Foundation year', f[2]]]
+    .filter(x=>x[1]).map(x=>row(x[0], opt[x[1]])).join('');
+  let h = rows ? '<dl class="kv" style="margin-top:0">'+rows+'</dl>' : '';
+  for(const [text, url] of d.acc || [])
+    h += '<div class="acc">'+esc(text)+(url ? ' <a href="'+esc(url)+'" target="_blank" rel="noopener">More &nearr;</a>' : '')+'</div>';
+  return h;
+}
+
+function hesaMain(d, r){
+  let h = '';
+  // ---- Student experience
+  if(d.cont || d.nss){
+    h += '<p class="psec">Student experience</p>';
+    if(d.cont){
+      const v = d.cont.v, b = d.cont.b || [];
+      const stat = (n, l, c) => '<div class="stat"><div class="n">'+pct(n)+'</div><div class="l">'+l+'</div>'
+        + (c != null ? '<div class="c" title="'+esc(ukTip(d.cont))+'">UK '+c+'%</div>' : '')+'</div>';
+      h += hsub('After the first year', d.cont)
+        + '<div class="stats">' + stat(v[0], 'still studying', b[0]) + stat(v[1], 'left higher education', b[1])
+        + stat(v[2], 'moved to a lower award', b[2]) + '</div>'
+        + scopeLine([d.cont.n ? d.cont.n+' students' : '', 'started '+d.cont.y]);
+    }
+    if(d.nss){
+      const names = ['Teaching on my course','Learning opportunities','Assessment and feedback',
+                     'Academic support','Organisation and management','Learning resources','Student voice'];
+      const b = d.nss.b || [];
+      h += hsub('National Student Survey', d.nss)
+        + '<div class="meters"><span class="colhead" style="text-align:left">% positive</span>'
+        + '<span class="colhead">Here</span><span class="colhead" title="'+esc(ukTip(d.nss))+'">UK</span>'
+        + d.nss.v.map((v,i)=> v == null ? '' :
+            '<span>'+names[i]+'</span><span class="val">'+v+'%</span><span class="cmp">'+(b[i]!=null?b[i]+'%':'')+'</span>'
+            + '<div class="track"><div class="fill" style="width:'+v+'%"></div>'
+            + (b[i]!=null ? '<div class="tick" style="left:calc('+b[i]+'% - 1px)"></div>' : '') + '</div>').join('')
+        + '</div>'
+        + scopeLine([d.nss.n ? d.nss.n+' final-year students' : '', d.nss.r ? d.nss.r+'% responded' : '', 'NSS '+d.nss.y]);
+    }
+  }
+
+  // ---- After graduating
+  const sals = [['15 months', d.sal], ['3 years', d.leo3], ['5 years', d.leo5]].filter(x=>x[1] && x[1].v && x[1].v[1]);
+  if(sals.length || d.emp || d.job || d.voice){
+    h += '<p class="psec">After graduating</p>';
+  }
+  if(sals.length){
+    const all = [].concat(...sals.map(([,s])=>[s.v[0], s.v[2], s.b && s.b[1]])).filter(x=>x);
+    const lo = Math.floor(Math.min(...all)/10000)*10000, hi = Math.ceil(Math.max(...all)/10000)*10000 || lo+10000;
+    const at = v => ((v-lo)/(hi-lo)*100).toFixed(2)+'%';
+    h += hsub('Salary', sals[0][1]) + '<div class="sal">';
+    for(const [when, s] of sals){
+      const [q1, med, q3] = s.v, uk = s.b && s.b[1];
+      h += '<span class="when">'+when+'</span><div class="salbar" title="'+esc('Middle half '+money(q1)+'–'+money(q3)+', median '+money(med)+(uk?'; UK '+money(uk):''))+'">'
+        + '<div class="axis"></div>'
+        + (q1 && q3 ? '<div class="iqr" style="left:'+at(q1)+';width:calc('+at(q3)+' - '+at(q1)+')"></div>' : '')
+        + (uk ? '<div class="sec" style="left:'+at(uk)+'"></div>' : '')
+        + '<div class="dot" style="left:'+at(med)+'"></div></div><span class="med">'+money(med)+'</span>';
+    }
+    const ticks = []; for(let v = lo; v <= hi; v += 10000) ticks.push('<span>'+money(v)+'</span>');
+    h += '<span></span><div class="salaxis">'+ticks.join('')+'</div><span></span></div>'
+      + '<div class="hlegend"><span><i style="width:14px;height:8px;background:#2f4f7a"></i>middle half</span>'
+      + '<span><i style="width:3px;height:11px;background:var(--accent)"></i>median</span>'
+      + '<span title="UK median for the same subject"><i style="height:11px;border-left:2px solid var(--dim)"></i>UK, same subject</span></div>'
+      + scopeLine([d.sal ? '15 months: survey of '+(d.sal.n||'?')+' graduates, '+d.sal.y : '',
+                   d.leo5 || d.leo3 ? '3 and 5 years: tax records, '+(d.leo5||d.leo3).y+' graduates' : '']);
+  }
+  if(d.emp && d.emp.v){
+    const [, work, study, both, unemp, noavail, prev] = d.emp.v;
+    const segs = [[work,'working','var(--accent)'],[both,'working and studying','#4fc3a1'],
+                  [study,'studying','var(--accent2)'],[unemp,'unemployed','#c2568f'],
+                  [(noavail||0)+(prev||0),'other','#4a5260']].filter(x=>x[0]);
+    h += hsub('15 months on', d.emp)
+      + '<div class="stack">'+segs.map(s=>'<span style="width:'+s[0]+'%;background:'+s[2]+'" title="'+s[0]+'% '+s[1]+'"></span>').join('')+'</div>'
+      + '<div class="hlegend">'+segs.map(s=>'<span><i style="width:10px;height:10px;background:'+s[2]+'"></i>'+s[0]+'% '+s[1]+'</span>').join('')+'</div>';
+    if(d.emp.b && d.emp.b[0] != null) h += '<div class="scope" title="'+esc(ukTip(d.emp))+'">UK, same subject: '+d.emp.b[0]+'% in work or study</div>';
+  }
+  const stats = [];
+  const st = (blk, i, label) => {
+    if(!blk || !blk.v || blk.v[i] == null) return;
+    const c = blk.b && blk.b[i];
+    stats.push('<div class="stat"><div class="n">'+blk.v[i]+'%</div><div class="l">'+label+'</div>'
+      + (c != null ? '<div class="c" title="'+esc(ukTip(blk))+'">UK '+c+'%</div>' : '')+'</div>');
+  };
+  st(d.job, 0, 'in professional or managerial jobs');
+  st(d.voice, 0, 'say their work is meaningful');
+  st(d.voice, 2, 'use what they learned');
+  if(stats.length) h += '<div class="stats" style="margin-top:12px">'+stats.join('')+'</div>';
+  if(d.jobs && d.jobs.v.length){
+    h += '<ul class="jobs">'+d.jobs.v.map(([job,p])=>'<li><span>'+esc(job)+'</span><b>'+p+'%</b></li>').join('')+'</ul>';
+  }
+  const g = d.emp || d.job;
+  if(g) h += scopeLine(['Graduate Outcomes survey', g.n ? g.n+' graduates' : '', g.r ? g.r+'% responded' : '', g.y]);
+
+  if(h) h += '<div class="scope" style="margin-top:14px">'
+    + (r.courseLink === 'base' ? 'Figures are for the main course; this variant is listed with it. ' : '')
+    + 'Source: Discover Uni (OfS and HESA open data).</div>';
+  return h;
 }
 
 // The header and filter bar both wrap at narrow widths, so the sticky offsets

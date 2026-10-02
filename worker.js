@@ -52,6 +52,7 @@ function toCourse(r) {
     ucasUrl: r.ucas_url,
     courseUrl: r.course_url || null,
     courseLink: r.course_link || null,
+    kisKey: r.kis_key || null,
     optionCount: 1,
     summary: '',
   };
@@ -250,6 +251,15 @@ export default {
         if (url.pathname === '/api/providers') return json(await handleProviders(env, p));
         if (url.pathname === '/api/facets') return json(await handleFacets(env, p));
         if (url.pathname === '/api/meta') return json(await handleMeta(env));
+        // One stored JSON record per Discover Uni course, passed through as
+        // text. A primary-key read: one row per panel opened.
+        if (url.pathname === '/api/hesa') {
+          const row = p.key ? await env.DB.prepare('SELECT data FROM hesa WHERE kis_key = ?')
+            .bind(String(p.key)).first() : null;
+          return new Response(row ? row.data : 'null', {
+            headers: { 'Content-Type': 'application/json', 'Cache-Control': 'public, max-age=3600' },
+          });
+        }
         // Requirements are resolved at import time and stored on the row, so
         // the live borrowing endpoint has nothing to do here.
         if (url.pathname === '/api/tariffs') {

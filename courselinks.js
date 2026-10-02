@@ -162,7 +162,9 @@ function load(dir) {
     const mode = /part/i.test(r.studyMode || '') ? '02' : '01';
     narrow(h => h.KISMODE === mode);
 
-    return { url: hits[0].CRSEURL.trim(), how: how, by: by };
+    const h = hits[0];
+    return { url: h.CRSEURL.trim(), how: how, by: by,
+             kis: [h.PUBUKPRN, h.UKPRN, h.KISCOURSEID, h.KISMODE].join('|') };
   }
 
   return { match: match, courses: courses.length, providers: known };
@@ -276,23 +278,35 @@ function main() {
   const cycles = new Set(rows.map(r => r.year + '|' + r.level));
   for (const c of cycles) {
     const [year, level] = c.split('|');
-    parts.push('UPDATE courses SET course_url=NULL, course_link=NULL WHERE year=' + q(year) +
-               ' AND level=' + q(level) + ';');
+    parts.push('UPDATE courses SET course_url=NULL, course_link=NULL, kis_key=NULL WHERE year=' +
+               q(year) + ' AND level=' + q(level) + ';');
   }
-  const items = [];
+  const items = [], keys = new Set();
   for (const r of rows) {
     const m = links.match(r);
     items.push({ provider: r.provider, ukprn: r.ukprn, m: m });
     if (!m) continue;
+    keys.add(m.kis);
     parts.push('UPDATE courses SET course_url=' + q(m.url) + ', course_link=' + q(m.how) +
-               ' WHERE rowid_key=' + q(r.key) + ';');
+               ', kis_key=' + q(m.kis) + ' WHERE rowid_key=' + q(r.key) + ';');
   }
+
+  // The panel's Discover Uni figures come from the same download, so refresh
+  // them alongside. Required here rather than at the top: hesa.js requires
+  // this module.
+  const hesa = require('./hesa').load(get('--hesa'));
+  const h = require('./hesa').toSql(hesa, keys);
+  parts.push(...h.sql);
+
   fs.writeFileSync(out, parts.join('\n') + '\n');
   console.log('wrote ' + out);
   console.log('  rows              : ' + rows.length.toLocaleString());
   report(items, links);
+  console.log('  Discover Uni data : ' + h.count.toLocaleString() + ' courses');
 }
 
-if (require.main === module) main();
+// Exported before main() runs: hesa.js, which main() requires, requires this.
+module.exports = { load: load, report: report, parseCsv: parseCsv, snapshotRows: snapshotRows,
+                   DEFAULT_DIR: DEFAULT_DIR };
 
-module.exports = { load: load, report: report, DEFAULT_DIR: DEFAULT_DIR };
+if (require.main === module) main();

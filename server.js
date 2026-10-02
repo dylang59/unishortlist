@@ -222,6 +222,7 @@ function flatten(hit) {
     summary: '',
     courseUrl: link ? link.url : null,
     courseLink: link ? link.how : null,
+    kisKey: link ? link.kis : null,
     ucasUrl: 'https://www.ucas.com/explore/courses/' + hit.courseId
            + (slugify(hit.courseTitle) ? '/' + slugify(hit.courseTitle) : '')
            + '?studyYear=' + (hit.academicYearId || ''),
@@ -252,7 +253,17 @@ const FACET_LIST = JSON.stringify([
   'studyLevel',
 ]);
 
+// Discover Uni panel figures, built on first use: loading takes ~6 s, which
+// startup need not wait for.
+let HESA;
+const hesaData = () => HESA === undefined ? (HESA = require('./hesa').load()) : HESA;
+
 const routes = {
+  '/api/hesa': async (payload) => {
+    const h = payload.key && hesaData();
+    return h ? h.get(String(payload.key)) : null;
+  },
+
   // One page of results plus facet counts.
   '/api/search': async (payload) => {
     const page = Math.max(0, (payload.pageNumber || 1) - 1);

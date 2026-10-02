@@ -166,6 +166,7 @@ Both backends. All POST, all JSON body, all returning JSON.
 | `/api/providers` | provider list with counts, for the picker | yes |
 | `/api/facets` | raw facet counts | yes |
 | `/api/meta` | snapshot date and row counts | yes |
+| `/api/hesa` | `{key}` → one course's Discover Uni record, or `null` | yes |
 | `/api/tariffs` | borrowed entry requirements | returns empty — resolved at import |
 | `/api/stats` | cache hit/miss, upstream query count | no |
 | `/api/export/plan` | cost estimate before exporting | **501** |
@@ -301,6 +302,70 @@ Algolia: `node courselinks.js --snapshot snapshot-2027.sql --out links.sql`,
 then run `links.sql` against D1. It clears the cycle's links before writing,
 so links the matcher no longer makes are removed. It reads columns by name, so
 it needs a snapshot that has the `ukprn` column.
+
+---
+
+## Course panel: Discover Uni figures
+
+The course panel shows what Discover Uni reports about each matched course:
+entrants' UCAS points and qualifications, continuation after the first year,
+National Student Survey themes, salaries at 15 months (survey) and 3 and 5
+years (tax records), what graduates are doing 15 months on, common jobs,
+accreditation, and placement, year-abroad and foundation-year options.
+
+**How it gets there.** The link matcher returns the Discover Uni course key,
+`PUBUKPRN|UKPRN|KISCOURSEID|KISMODE`, which every Discover Uni table joins on.
+It is stored on the row as `kis_key`. `hesa.js` turns each key into one compact
+JSON record in the `hesa` table, and the panel fetches it from `/api/hesa` when
+it opens: one primary-key read per course viewed, cached for an hour. Both the
+snapshot step and the `courselinks.js` backfill write these records, so a new
+Discover Uni download refreshes them the same way it refreshes the links.
+Records no longer referenced by any row are deleted at the end. 2027
+undergraduate: 19,584 records, about 1.4 KB each, 27.5 MB in all.
+
+**Most figures are not about the course alone.** When a course is too small to
+report, HESA pools it with its subject at that provider, then wider subject
+groups, sometimes over two years. Each table's `…AGG` code says which: first
+digit the years pooled, second the level (4 = this course; 3, 2, 1 = CAH subject
+groups at those levels). This was checked against the data: the `…SBJ` field is
+empty exactly when the level is 4. The panel puts a chip on every block, green
+"This course" or amber "Subject at this uni" / "Wider subject at this uni", with
+the CAH code in its tooltip, and the population and year underneath. Salaries
+are never course-level. About 35-45% of NSS, continuation and entrant figures
+are.
+
+**The UK comparison** for each block is the median across providers for the
+same CAH subject, mode and level, worked out at import, taking the most
+specific subject level that has one. Each provider counts once, by the median
+of its distinct rows; pooled rows repeat across every course they cover. Joint
+courses' own figures are left out, since they belong to no single subject.
+Fewer than five providers and no comparison is shown. The entrant-points
+comparison is pooled instead, weighted by entrants. Salary uses HESA's own
+published sector figures (`GOSECSAL`).
+
+**Entrants' points.** HESA's tariff bands are 16 points wide from 96, the same
+boundaries as the Entry column, so the chart colours each bar by its band. The
+shares are of all entrants, and entrants with no points recorded are in no bar,
+so some courses total well under 100: about 40 for St Andrews' joint degrees,
+which report 86% entering with A-levels or Highers, so the gap is not simply
+international qualifications. When the total is under 90 the panel gives the
+missing share and works out the median among entrants with points.
+
+**Choices made:**
+- **Joint courses** can have a row per subject in a table; the one covering the
+  most students is used.
+- **The job list** is hidden below 20 graduates, where each 5%-rounded share is
+  one or two people.
+- **No subject names.** Discover Uni gives CAH codes only, HESA's site blocks
+  scripted downloads of the code list, and names derived from course titles
+  were too unreliable ("Diplôme de Pâtisserie"). Chips name the level instead.
+- **NSS theme labels** (`T1`-`T7`) follow the standard NSS theme order:
+  teaching, learning opportunities, assessment and feedback, academic support,
+  organisation and management, learning resources, student voice. They do not
+  recompute exactly from the individual questions, so they are worth checking
+  against the HESA file specification if that is ever to hand.
+- **No TEF ratings.** `TEFOutcome.csv` is empty in the current download.
+- **No demographics.** Discover Uni has none at course level.
 
 **Known weak spots.** St Andrews and Glasgow submit one page per subject, so
 joint degrees link to a single-subject page. Discover Uni runs a cycle behind
@@ -568,21 +633,24 @@ npx wrangler d1 execute ucasbuster --remote --file=migrate-indexes.sql
 npx wrangler d1 execute ucasbuster --remote --file=migrate-provider-counts.sql
 npx wrangler d1 execute ucasbuster --remote --file=migrate-sort-indexes.sql
 npx wrangler d1 execute ucasbuster --remote --file=migrate-course-links.sql
+npx wrangler d1 execute ucasbuster --remote --file=migrate-hesa.sql
 ```
 
-Columns are the exception: a snapshot has no `CREATE TABLE`, so it cannot add
-them. `migrate-course-links.sql` must run before the first snapshot that carries
-`ukprn`/`course_url`/`course_link`, or every INSERT fails. To add links to the
-data already loaded, without re-querying Algolia:
+Columns are the exception: a snapshot has no `CREATE TABLE` for `courses`, so
+it cannot add them. `migrate-course-links.sql` must run before the first
+snapshot that carries `ukprn`/`course_url`/`course_link`, and `migrate-hesa.sql`
+before the first that carries `kis_key`, or every INSERT fails. To add links
+and Discover Uni figures to the data already loaded, without re-querying
+Algolia:
 
 ```
 node courselinks.js --snapshot snapshot-2027.sql --out links-2027.sql
 npx wrangler d1 execute ucasbuster --remote --file=links-2027.sql
 ```
 
-That matches on website domain only (old snapshots carry no UKPRN), so it
-misses a few providers the next full snapshot will pick up, Lancaster and the
-Open University among them.
+A snapshot from before the `ukprn` column can only match on website domain and
+misses providers such as Lancaster; the coverage report warns when that is the
+case.
 
 The .sql file is an intermediate artifact, gitignored and not in the repo
 (~21 MB, 1,190 INSERT statements). Keeping it means a failed load can be
