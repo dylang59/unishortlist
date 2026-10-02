@@ -983,6 +983,21 @@ function gradeRange(text){
   return {lo:Math.min.apply(null, pts), hi:Math.max.apply(null, pts)};
 }
 
+// The highest offer in a grade range as written ("AAA - AAB" -> "AAA"), or
+// null for prose. Ranges are not always written highest first.
+function topGrade(text){
+  const t = String(text||'').trim();
+  if(!t || !/^[A-E*\s\-]+$/i.test(t)) return null;
+  let best = null, bestPts = -1;
+  for(const part of t.split(/\s*-\s*/)){
+    const m = part.match(/A\*|[A-E]/gi);
+    if(!m) continue;
+    const pts = m.reduce((a,g)=>a + (ALPTS[g.toUpperCase()] || 0), 0);
+    if(pts > bestPts){ bestPts = pts; best = m.join('').toUpperCase(); }
+  }
+  return best;
+}
+
 // A course's published requirement as a points range, or null when nothing
 // is published.
 function entryRange(r){
@@ -1033,31 +1048,43 @@ function pointsToGrades(points){
   }).label;
 }
 
+// The Grades and UCAS columns show one figure each: the top of the published
+// range, the same figure Entry ranks on. A range's lower end is usually a
+// contextual offer, and showing both read as noise ("~A*A*A*–CCC"). The full
+// published text stays in the tooltip and the side panel.
+// The panel's headline: the top figure, with the published range beneath it.
+function bigEntry(r){
+  if(!r.tariff) return '—';
+  if(r.tariffIsGrades) return topGrade(r.tariff) || r.tariff;
+  const rg = entryRange(r);
+  return rg ? rg.hi + ' points' : r.tariff;
+}
+
 function requirementViews(r){
   if(!r.tariff) return {grades:'—',points:'—',official:null};
   const source = r.tariffFrom ? 'Published for '+r.tariffFrom : 'Published by the university';
   const rg = entryRange(r);
+  const ranged = rg && rg.lo !== rg.hi;
   if(r.tariffIsGrades){
+    const top = topGrade(r.tariff);
     return {
-      grades:r.tariff,
-      points:!rg?'—':'~'+(rg.lo===rg.hi ? rg.hi : rg.lo+'–'+rg.hi),
+      grades:top || r.tariff,
+      points:!rg?'—':'~'+rg.hi,
       official:'grades',
-      gradesTitle:source+' as A-level grades',
+      gradesTitle:source+' as A-level grades' + (ranged ? ': '+r.tariff : ''),
       pointsTitle:!rg?'Could not convert these grades':'Approximate UCAS points converted from the published grades',
     };
   }
-  const pointsText = String(r.tariff).replace(/\s*points?\s*/ig,'').replace(/\s*-\s*/g,'–');
-  // Highest first, the way universities write grade ranges ("AAB - ABB").
-  const hiG = rg && pointsToGrades(rg.hi), loG = rg && pointsToGrades(rg.lo);
-  const grades = !hiG ? null : hiG===loG ? hiG : hiG+'–'+loG;
+  const hiG = rg && pointsToGrades(rg.hi);
+  const published = String(r.tariff).replace(/\s*-\s*/g,'–');
   return {
-    grades:grades?'~'+grades:'—',
-    points:pointsText || '—',
+    grades:hiG?'~'+hiG:'—',
+    points:rg ? String(rg.hi) : '—',
     official:'points',
-    gradesTitle:!grades ? 'Could not convert this tariff'
-      : 'Approximate three-A-level equivalent converted from the published UCAS tariff'
-        + (rg.hi > MAX_THREE ? '. The top figure is above A*A*A* and assumes qualifications beyond three A-levels' : ''),
-    pointsTitle:source+' as UCAS tariff points',
+    gradesTitle:!hiG ? 'Could not convert this tariff'
+      : 'Approximate three-A-level equivalent of the top published UCAS figure'
+        + (rg.hi > MAX_THREE ? '. It is above A*A*A* and assumes qualifications beyond three A-levels' : ''),
+    pointsTitle:source+' as UCAS tariff points' + (ranged ? ': '+published : ''),
   };
 }
 
@@ -1271,7 +1298,8 @@ function fill(r){
     + (r.tariffFrom ? ' · from '+esc(r.tariffFrom) : '')
     + '</div>'
     + '<div class="big'+(r.tariffFrom?' prev':'')+'">'
-    + (r.tariffFrom?'~':'') + esc(r.tariff || '—') + '</div>'
+    + (r.tariffFrom?'~':'') + esc(bigEntry(r)) + '</div>'
+    + (bigEntry(r) !== (r.tariff || '—') ? '<div class="sub">Published as '+esc(r.tariff)+'</div>' : '')
     + (r.tariffFrom
         ? '<div class="sub">Not published for '+esc(r.year)+' yet — shown from '
           + esc(r.tariffFrom)+'. Check the UCAS listing.</div>'

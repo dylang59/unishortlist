@@ -213,6 +213,20 @@ So the column is filled from three sources, in order:
    `options[0].entryReq_al`), most recent year first, for providers that
    produced nothing from 1 or 2.
 
+**Grades also replace a points range too wide to be an offer**: a top above
+168 (A*A*A*, the most three A-levels can reach) or a spread of 48 points or
+more (three grades in every subject). For 2026 KCL published ranges like
+`93 - 198` and Southampton `24 - 198`, covering every route in, where their
+A-level offers are A*AA and AAB. The 2026-10-02 snapshot had 1,229 such rows
+across 38 providers, all borrowed 2026 figures; the legacy lookup now runs for
+those providers too, about 60 extra queries. Grades only replace a range when
+they are grades, not prose.
+
+**The table shows one figure per column: the top of the range.** It is what
+Entry ranks on, and the lower end is usually a contextual offer. Showing both
+read as noise (`~A*A*A*–CCC`). The full published text is in the tooltip and
+under the headline figure in the side panel.
+
 Borrowed values render dimmed with a leading `~` and a tooltip naming the
 source. Current snapshot:
 

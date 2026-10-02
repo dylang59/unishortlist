@@ -117,25 +117,44 @@ function linkFor(h, links) {
   });
 }
 
+// The course's UCAS points: this cycle's, else last cycle's. null if neither.
+function pointsFor(h, tariffs) {
+  const t = h.ucasTariff || {};
+  if (t.min || t.max) return { min: t.min || null, max: t.max || null, from: null };
+  const prior = tariffs.byId[h.courseId] ||
+                tariffs.byTitle[(h.provider || {}).name + '|' + norm(h.courseTitle)];
+  return prior ? { min: prior.min, max: prior.max, from: tariffs.prev } : null;
+}
+
+// A points range that cannot be read as an offer. Three A-levels top out at
+// 168 (A*A*A*), so a higher top counts qualifications beyond them, and a
+// spread of 48 or more is three grades in every subject. KCL publishes ranges
+// like 93 - 198 and Southampton 24 - 198 for 2026, covering every route in;
+// their A-level offers (A*AA, AAB) say far more. 288 of 2027's rows top out
+// above 168 and 1,269 span 48+.
+const implausible = pts => !!pts && ((pts.max || 0) > 168 || (pts.max || 0) - (pts.min || pts.max || 0) >= 48);
+
+// Grades as printed, when they are grades and not prose.
+const gradeText = g => g && /^[A-E*\s\-]+$/i.test(g) ? g : null;
+
 function toRow(h, tariffs, grades, links) {
   const o = (h.courseOptions && h.courseOptions[0]) || {};
   const p = h.provider || {};
   const loc = o.location || {};
-  const t = h.ucasTariff || {};
   const geo = (h._geoloc && h._geoloc[0]) || {};
   const key = p.name + '|' + norm(h.courseTitle);
 
-  let tText = null, tMin = t.min || null, tMax = t.max || null, tFrom = null, isGrades = 0;
-  if (t.min || t.max) {
-    tText = t.min === t.max ? String(t.min) + ' points' : t.min + ' - ' + t.max + ' points';
-  } else {
-    const prior = tariffs.byId[h.courseId] || tariffs.byTitle[key];
-    if (prior) {
-      tText = prior.text; tMin = prior.min; tMax = prior.max; tFrom = tariffs.prev;
-    } else {
-      const g = grades.byId[h.courseId] || grades.byTitle[key];
-      if (g) { tText = g; tFrom = 'recent years'; isGrades = 1; }
-    }
+  // Points first, A-level grades when there are none -- or when the points
+  // range is too wide to be an offer and the course has grades on record.
+  // Only real grades override a range; prose still beats nothing.
+  const pts = pointsFor(h, tariffs);
+  const g = grades.byId[h.courseId] || grades.byTitle[key];
+  let tText = null, tMin = null, tMax = null, tFrom = null, isGrades = 0;
+  if (pts && !(gradeText(g) && implausible(pts))) {
+    tMin = pts.min; tMax = pts.max; tFrom = pts.from;
+    tText = tMin === tMax || !tMin ? String(tMax || tMin) + ' points' : tMin + ' - ' + tMax + ' points';
+  } else if (g) {
+    tText = g; tFrom = 'recent years'; isGrades = 1;
   }
 
   const link = linkFor(h, links);
@@ -210,16 +229,14 @@ async function main() {
   console.log('  ' + tariffs.count.toLocaleString() + ' tariff points from ' + tariffs.prev);
 
   // Only the providers still without any tariff need the legacy grade lookup.
+  // The legacy grade lookup is for providers with no points at all, and for
+  // those with any range too wide to be an offer.
   const needGrades = providers.filter(name => {
     const rows = res.rows.filter(h => h.provider && h.provider.name === name);
-    return rows.every(h => {
-      const t = h.ucasTariff || {};
-      if (t.min || t.max) return false;
-      const k = name + '|' + norm(h.courseTitle);
-      return !tariffs.byId[h.courseId] && !tariffs.byTitle[k];
-    });
+    return rows.every(h => !pointsFor(h, tariffs)) ||
+           rows.some(h => implausible(pointsFor(h, tariffs)));
   });
-  console.log('  ' + needGrades.length + ' providers quote grades, not points');
+  console.log('  ' + needGrades.length + ' providers need A-level grades (no points, or ranges too wide)');
   const grades = await legacyGrades(level, needGrades);
   console.log('  ' + grades.count.toLocaleString() + ' A-level grade entries');
 
