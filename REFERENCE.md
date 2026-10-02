@@ -653,12 +653,28 @@ Algolia + Discover Uni  --(1)-->  snapshot-2027.sql  --(2)-->  D1 (remote)  --(3
 ```
 npm run snapshot -- --year 2027 --level Undergraduate --out snapshot-2027.sql
 npx wrangler d1 execute ucasbuster --remote --file=snapshot-2027.sql
+npx wrangler d1 execute ucasbuster --local  --file=snapshot-2027.sql
 npm run deploy      # only if worker.js or public/ changed
 ```
 
-A snapshot carries its own schema, so step 2 brings the indexes and the
-`ANALYZE` with it. A database loaded *before* those were added needs the
-one-off migration instead of a full re-import:
+The `--local` line loads the same file into the copy `wrangler dev` reads, so
+local testing keeps matching production.
+
+A snapshot does not carry the schema. It replaces the rows of `courses`,
+`provider_counts`, `hesa` and `meta`, rebuilds `courses_fts` and runs
+`ANALYZE`, but the only table it creates is `hesa`, and it creates no indexes.
+An empty database therefore needs `schema.sql` first, which is the usual case
+locally after a fresh clone or a deleted `.wrangler` folder:
+
+```
+npx wrangler d1 execute ucasbuster --local --file=schema.sql
+npx wrangler d1 execute ucasbuster --local --file=snapshot-2027.sql
+```
+
+`schema.sql` drops every table, so never run it with `--remote` except to
+rebuild production from scratch. A database loaded *before* the indexes and
+tables were added to the schema needs the one-off migration instead of a full
+re-import:
 
 ```
 npx wrangler d1 execute ucasbuster --remote --file=migrate-indexes.sql
@@ -678,6 +694,7 @@ Algolia:
 ```
 node courselinks.js --snapshot snapshot-2027.sql --out links-2027.sql
 npx wrangler d1 execute ucasbuster --remote --file=links-2027.sql
+npx wrangler d1 execute ucasbuster --local  --file=links-2027.sql
 ```
 
 A snapshot from before the `ukprn` column can only match on website domain and
