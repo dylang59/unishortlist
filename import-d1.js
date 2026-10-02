@@ -271,7 +271,12 @@ async function main() {
   parts.push("INSERT OR REPLACE INTO meta (key,value) VALUES " +
              "('rows_" + year + '_' + level.toLowerCase() + "'," + q(res.rows.length) + ");");
 
-  // Rebuild the search index over the new rows.
+  // Rebuild the search index over the new rows. Recreated rather than only
+  // rebuilt, so a database still carrying the older token-based index picks
+  // up the trigram one the Worker searches with. Matches schema.sql.
+  parts.push("DROP TABLE IF EXISTS courses_fts;");
+  parts.push("CREATE VIRTUAL TABLE courses_fts USING fts5(title, provider, subjects, " +
+             "content='courses', content_rowid='rowid', tokenize='trigram');");
   parts.push("INSERT INTO courses_fts(courses_fts) VALUES('rebuild');");
 
   // Precompute the provider list the picker loads on every page view. Doing it
@@ -284,6 +289,23 @@ async function main() {
              "SELECT year, level, provider, COUNT(*) FROM courses " +
              "WHERE year=" + q(year) + " AND level=" + q(level) +
              " GROUP BY year, level, provider;");
+
+  // The same for every combination of the four filters, so a search narrowed
+  // by qualification, mode or region is counted from ~1,235 rows rather than
+  // the whole cycle. Created here if missing, like hesa; matches schema.sql.
+  parts.push("CREATE TABLE IF NOT EXISTS filter_counts (year TEXT NOT NULL, " +
+             "level TEXT NOT NULL, provider TEXT NOT NULL, award_level TEXT NOT NULL, " +
+             "study_mode TEXT NOT NULL, region TEXT NOT NULL, count INTEGER NOT NULL, " +
+             "PRIMARY KEY (year, level, provider, award_level, study_mode, region)) " +
+             "WITHOUT ROWID;");
+  parts.push("DELETE FROM filter_counts WHERE year=" + q(year) +
+             " AND level=" + q(level) + ";");
+  parts.push("INSERT INTO filter_counts " +
+             "(year, level, provider, award_level, study_mode, region, count) " +
+             "SELECT year, level, provider, COALESCE(award_level,''), " +
+             "COALESCE(study_mode,''), COALESCE(region,''), COUNT(*) FROM courses " +
+             "WHERE year=" + q(year) + " AND level=" + q(level) +
+             " GROUP BY 1, 2, 3, 4, 5, 6;");
 
   // Collect index statistics. Without these the planner has only guesses to
   // work with and picks idx_sort even when a provider filter would be far

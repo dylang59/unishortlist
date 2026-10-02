@@ -141,7 +141,7 @@ One payload shape, mapped to Algolia `facetFilters` by `buildParams()` in
 | `qualificationLevels[]` | `outcomeQualification.qualificationLevel` | `award_level` |
 | `studyModes[]` | `courseOptions.studyMode.mappedCaption` | `study_mode` |
 | `regions[]` | `courseOptions.location.region.grouped` | `region` |
-| `searchTerm` | `query=` | `LIKE` over title/provider/subjects |
+| `searchTerm` | `query=` | substring of title/provider/subjects: trigram `courses_fts`, else `LIKE` |
 | `limit` | pages fetched | `LIMIT` |
 
 `facetFilters` is an array of arrays: **outer AND, inner OR**. So
@@ -236,8 +236,8 @@ saving one twice finds the existing entry.
 
 **Saved searches cost no D1 reads.** The count on each card is the `total` the
 search returned when it was saved. A live count would be one query per card on
-every visit, and any search with a term is counted by a full scan of `courses`
-(`provider_counts` cannot answer it).
+every visit, and a search with a term is counted live: thousands of rows read
+through the search index, or the whole cycle by `LIKE`.
 
 A search link carries the search itself: `#q=physics&u=<name>&u=<name>`, plus
 `ql`, `md` and `rg` for qualification, mode and region. Opening one applies it
@@ -514,14 +514,14 @@ Columns worth knowing:
 - `tariff_text` — either `"112 - 120 points"` or grades `"AAB"`.
 - `tariff_from` — source year when borrowed, `NULL` when current.
 - `tariff_grades` — `1` when `tariff_text` holds grades, not points.
-- `subjects` — keyword blob, truncated to 500 chars, used for `LIKE`.
+- `subjects` — keyword blob, truncated to 500 chars, searched as a substring.
 - `ukprn` — the provider's UKPRN from UCAS (Discover Uni's `PUBUKPRN`).
 - `course_url`, `course_link` — the university's course page and how it was
   matched (`exact` / `base`). See [Course page links](#course-page-links).
 - `kis_key` — the matched Discover Uni course, the key into `hesa`.
 
-Two small side tables: `provider_counts` (the picker's list, precomputed at
-import) and `hesa` (`kis_key` → one JSON record of panel figures, read one row
+Small side tables: `provider_counts` (the picker's list, precomputed at
+import), `filter_counts` (search totals by filter, likewise) and `hesa` (`kis_key` → one JSON record of panel figures, read one row
 at a time; see [Course panel](#course-panel-discover-uni-figures)). The JSON
 there is the one deliberate exception to "never parses JSON": it is passed
 through to the browser as text, never queried.
@@ -568,7 +568,10 @@ kept `idx_sort` rather than switching.
 
 The fix is `(year, level, <col>, provider_sort, title)` -- filter column first,
 then the sort columns, so the scan stays ordered and `LIMIT` stops early:
-`idx_sort_award`, `idx_sort_mode`, `idx_sort_region`.
+`idx_sort_award`, `idx_sort_mode`, `idx_sort_region`. `idx_sort_provider`
+followed later for the same reason: one provider is at most ~1,000 rows, but
+the largest (St Andrews) still read 2,394 per search sorting them all, and 922
+once the index kept them in order.
 
 These **replace** the narrow `(year, level, <col>)` indexes rather than adding to
 them. Each old index is a prefix of its replacement, so the planner uses the
@@ -580,24 +583,58 @@ database.
 
 `import-d1.js` appends `ANALYZE` after the FTS rebuild. Without the statistics
 it writes, the planner has only guesses and picks `idx_sort` for *every* search,
-including filtered ones where seeking `idx_provider` is far cheaper — a
+including filtered ones where seeking a provider index is far cheaper — a
 single-provider search measured **16.3 ms instead of 0.9 ms**. Re-run it after
 any bulk load; `migrate-indexes.sql` does it for a database loaded before this
 change.
 
 ### No index on `title` alone
 
-Deliberate. The only query touching `title` is `lower(title) LIKE '%term%'`,
-which no index can serve — verified `SCAN courses` even for a prefix pattern.
+Deliberate. The search term is a substring match, `lower(title) LIKE '%term%'`,
+which no b-tree index can serve — verified `SCAN courses` even for a prefix
+pattern. `courses_fts` serves it instead.
 
-### FTS5 is built but unused
+### Search terms go through a trigram index
 
-`courses_fts` is rebuilt on every import; the Worker uses `LIKE` instead. This
-is a deliberate trade-off, not an oversight. FTS is token-based, so a search for
-`physics` matches 746 rows and misses *Astrophysics*, *Biophysics* and
-*Astronomy, Space Science and Astrophysics*; the substring `LIKE` matches 848
-and finds them. Switching would be faster (0.6 ms vs 51 ms) but would quietly
-drop results. It costs 3.6 MB to carry.
+The search term matches anywhere in the title, provider or subject keywords.
+`LIKE '%term%'` does that by reading the whole cycle, and search runs as you
+type, so each search read 30,000–60,000 rows: the row fetch, then the same
+again for the count.
+
+`courses_fts` was first built token-based and left unused, because a token
+index changes the results: `physics` matched 746 rows and missed
+*Astrophysics*, *Biophysics* and *Astronomy, Space Science and Astrophysics*,
+where `LIKE` matched 848. It is now built with `tokenize='trigram'`, whose
+`MATCH` is a case-insensitive substring match. Checked against `LIKE` on 22
+searches, it returned the same rows and totals for every one (physics 848,
+computer science 1,402, law 1,606, business 3,817), and reads ~4 rows per
+match.
+
+The Worker counts through the index first, then picks the cheaper way to fetch
+the rows. The index reads every match before it can sort them; `LIKE` walks
+`idx_sort` in order and stops after `limit` matches, so it wins for a broad
+term. Their costs cross at about 1,500 matches for the default 300 rows:
+
+| Search | Matches | Rows read, `LIKE` | Now |
+|---|---|---|---|
+| physics | 848 | 41,785 | 6,807 |
+| computer science | 1,402 | 35,685 | 11,216 |
+| law | 1,606 | 34,736 | 11,371 |
+| business | 3,817 | 32,219 | 17,698 |
+| no match | 0 | 59,579 | 3 |
+
+`LIKE` is still used, and gives the same rows, when:
+
+- the term is under 3 characters, which a trigram index cannot match;
+- it holds `%` or `_`, which `LIKE` treats as wildcards;
+- universities are picked, since `LIKE` then scans only their rows (UCL with
+  physics: 924 rows by `LIKE`, ~1,700 by the index);
+- `courses_fts` is not the trigram index, i.e. a database not yet migrated. The
+  Worker checks `sqlite_master` once per isolate rather than risk the
+  token-based index quietly dropping results.
+
+Every snapshot drops and recreates `courses_fts` as trigram before rebuilding
+it, and `migrate-search-counts.sql` does the same for an existing database.
 
 ### Ordering is deterministic
 
@@ -662,8 +699,17 @@ Rows read, 2027 undergraduate:
 
 The `total` count is served from `provider_counts` too, by the same rule: year,
 level and provider only, since `providers` is an OR over the very column the
-table is grouped on. Anything narrowed by region, mode, qualification or a
-search term is counted live, because the table cannot answer it.
+table is grouped on.
+
+A search narrowed by qualification, mode or region is summed from
+`filter_counts` instead: one row per combination of provider and the three
+filters, ~1,235 a cycle, built at import the same way. Counting `Bach(hons)`
+live read 22,478 rows for one number; summing reads 1,235, so the search as a
+whole went from 23,079 to 1,836. The fixed cost is a small loss for a rare
+filter (`Part-time` alone: 1,506 to 1,836). One university plus a filter is
+still counted live, since that reads at most the university's own rows, never
+more than 1,036. A search term is always counted live, through the trigram
+index where it can be (see above).
 
 That count query carries one subtlety. `SUM` over no matching rows returns
 `NULL`, which is indistinguishable from an empty table -- so counting the
@@ -718,8 +764,9 @@ The `--local` line loads the same file into the copy `wrangler dev` reads, so
 local testing keeps matching production.
 
 A snapshot does not carry the schema. It replaces the rows of `courses`,
-`provider_counts`, `hesa` and `meta`, rebuilds `courses_fts` and runs
-`ANALYZE`, but the only table it creates is `hesa`, and it creates no indexes.
+`provider_counts`, `filter_counts`, `hesa` and `meta`, recreates and rebuilds
+`courses_fts` and runs `ANALYZE`, but the only plain tables it creates are
+`hesa` and `filter_counts`, and it creates no indexes.
 An empty database therefore needs `schema.sql` first, which is the usual case
 locally after a fresh clone or a deleted `.wrangler` folder:
 
@@ -739,6 +786,7 @@ npx wrangler d1 execute ucasbuster --remote --file=migrate-provider-counts.sql
 npx wrangler d1 execute ucasbuster --remote --file=migrate-sort-indexes.sql
 npx wrangler d1 execute ucasbuster --remote --file=migrate-course-links.sql
 npx wrangler d1 execute ucasbuster --remote --file=migrate-hesa.sql
+npx wrangler d1 execute ucasbuster --remote --file=migrate-search-counts.sql
 ```
 
 Columns are the exception: a snapshot has no `CREATE TABLE` for `courses`, so

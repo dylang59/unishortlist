@@ -45,11 +45,9 @@ CREATE TABLE courses (
                                     -- PUBUKPRN|UKPRN|KISCOURSEID|KISMODE
 );
 
--- year+level scopes every query; provider is the UI's most selective filter.
--- Award level, mode and region are indexed further down, together with the
--- sort columns.
+-- year+level scopes every query. Provider, award level, mode and region are
+-- indexed further down, together with the sort columns.
 CREATE INDEX idx_year_level      ON courses (year, level);
-CREATE INDEX idx_provider        ON courses (year, level, provider);
 CREATE INDEX idx_tariff          ON courses (year, level, tariff_min);
 
 -- Matches the ORDER BY every search issues, which is what lets LIMIT stop
@@ -58,7 +56,7 @@ CREATE INDEX idx_tariff          ON courses (year, level, tariff_min);
 -- search reads all 29,774 rows to return 300 -- and D1 bills rows read.
 CREATE INDEX idx_sort            ON courses (year, level, provider_sort, title);
 
--- Same shape, for the three filters the UI can narrow by. A filter alone is
+-- Same shape, for the four filters the UI can narrow by. A filter alone is
 -- not enough: `idx_award_level` matched Bach(hons) fine but lost the sort
 -- order, so the whole 22,480-row match had to be sorted before LIMIT 300
 -- applied -- 44,961 rows read, worse than no filter at all. Carrying
@@ -68,19 +66,30 @@ CREATE INDEX idx_sort            ON courses (year, level, provider_sort, title);
 -- These replace the narrower (year, level, <col>) indexes rather than adding
 -- to them: a prefix of each of these, so the planner uses these instead, and
 -- the facet GROUP BYs still get a covering index from them. Net cost ~5 MB.
-CREATE INDEX idx_sort_award  ON courses (year, level, award_level, provider_sort, title);
-CREATE INDEX idx_sort_mode   ON courses (year, level, study_mode, provider_sort, title);
-CREATE INDEX idx_sort_region ON courses (year, level, region, provider_sort, title);
+-- For provider the gain is smaller (one provider has at most ~1,000 rows),
+-- but the largest still read 2,715 rows to return 300 without it.
+CREATE INDEX idx_sort_provider ON courses (year, level, provider, provider_sort, title);
+CREATE INDEX idx_sort_award    ON courses (year, level, award_level, provider_sort, title);
+CREATE INDEX idx_sort_mode     ON courses (year, level, study_mode, provider_sort, title);
+CREATE INDEX idx_sort_region   ON courses (year, level, region, provider_sort, title);
 
--- There is deliberately no index on title alone: the only query touching it
--- is `lower(title) LIKE '%term%'`, which no index can serve.
+-- There is deliberately no index on title alone: the search term is a
+-- substring match, which no b-tree index can serve. courses_fts serves it.
 
--- Full-text search over course title, provider and subject keywords.
+-- Substring search over course title, provider and subject keywords.
+--
+-- The trigram tokenizer is what makes this usable: a token-based index finds
+-- `physics` but misses Astrophysics, whereas trigram MATCH is a substring
+-- match, case-insensitive, and returns the same rows as the `lower(...) LIKE`
+-- it replaces. It reads ~4 rows per match instead of the whole cycle. Terms
+-- under 3 characters cannot use it; the Worker falls back to LIKE for those.
+-- import-d1.js recreates this in every snapshot, so the definitions must match.
 DROP TABLE IF EXISTS courses_fts;
 CREATE VIRTUAL TABLE courses_fts USING fts5(
   title, provider, subjects,
   content='courses',
-  content_rowid='rowid'
+  content_rowid='rowid',
+  tokenize='trigram'
 );
 
 -- Per-cycle provider counts, precomputed at import.
@@ -99,6 +108,27 @@ CREATE TABLE provider_counts (
   count    INTEGER NOT NULL,
   PRIMARY KEY (year, level, provider)
 );
+
+-- Per-cycle counts for every combination of the four filters, precomputed at
+-- import (~1,235 rows a cycle).
+--
+-- provider_counts cannot answer a search narrowed by qualification, mode or
+-- region, so those were counted live: Bach(hons) alone read 22,478 rows for
+-- one number. Summing the matching rows here gives the same answer for
+-- reading the cycle's ~1,235. Missing values are stored as '' rather than
+-- NULL, which WITHOUT ROWID requires of a key; a filter never asks for ''.
+-- import-d1.js creates this if missing, so the definitions must match.
+DROP TABLE IF EXISTS filter_counts;
+CREATE TABLE filter_counts (
+  year        TEXT NOT NULL,
+  level       TEXT NOT NULL,
+  provider    TEXT NOT NULL,
+  award_level TEXT NOT NULL,
+  study_mode  TEXT NOT NULL,
+  region      TEXT NOT NULL,
+  count       INTEGER NOT NULL,
+  PRIMARY KEY (year, level, provider, award_level, study_mode, region)
+) WITHOUT ROWID;
 
 -- Discover Uni figures for the course panel, one JSON record per Discover Uni
 -- course (see hesa.js for its shape). Read one row at a time, by key, when a

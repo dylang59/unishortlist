@@ -59,7 +59,9 @@ function toCourse(r) {
 }
 
 // Build a WHERE clause from the same filter vocabulary the Algolia server used.
-function where(p) {
+// With `match`, the search term is served by the trigram index instead of LIKE
+// (see ftsMatch); both select the same rows.
+function where(p, match) {
   const sql = [];
   const args = [];
   if (p.academicYearId) { sql.push('year = ?'); args.push(String(p.academicYearId)); }
@@ -75,9 +77,12 @@ function where(p) {
   list(p.studyModes, 'study_mode');
   list(p.regions, 'region');
 
-  if (p.searchTerm && p.searchTerm.trim()) {
-    // LIKE over title, provider and the subject keyword blob. Simple, and on
-    // 30k rows it stays comfortably fast.
+  if (match) {
+    sql.push('rowid IN (SELECT rowid FROM courses_fts WHERE courses_fts MATCH ?)');
+    args.push(match);
+  } else if (p.searchTerm && p.searchTerm.trim()) {
+    // LIKE over title, provider and the subject keyword blob. Fast enough on
+    // 30k rows, but it reads all of them.
     const t = '%' + p.searchTerm.trim().toLowerCase() + '%';
     sql.push('(lower(title) LIKE ? OR lower(provider) LIKE ? OR lower(subjects) LIKE ?)');
     args.push(t, t, t);
@@ -85,32 +90,81 @@ function where(p) {
   return { sql: sql.length ? 'WHERE ' + sql.join(' AND ') : '', args: args };
 }
 
-// The row count for a result set, from provider_counts where that table can
+// Whether courses_fts is the trigram index, checked once per isolate. A
+// database not yet migrated still carries the token-based one, which would
+// quietly drop Astrophysics from a search for physics -- so anything other than
+// a confirmed trigram index means LIKE. A failed check is not cached.
+let trigram = null;
+
+async function hasTrigram(env) {
+  if (trigram === null) {
+    const row = await env.DB.prepare(
+      "SELECT sql FROM sqlite_master WHERE name = 'courses_fts'"
+    ).first().catch(() => undefined);
+    if (row === undefined) return false;
+    trigram = !!(row && /tokenize\s*=\s*'trigram'/i.test(row.sql));
+  }
+  return trigram;
+}
+
+// The trigram MATCH string for a search, or null where LIKE is the better or
+// only choice. LIKE reads the whole cycle to find the matches; the index reads
+// ~4 rows per match. Not used when:
+// - the term is under 3 characters, which a trigram index cannot match;
+// - it holds % or _, which LIKE treats as wildcards, so the two would differ;
+// - universities are picked, since LIKE then scans only their rows -- UCL with
+//   physics read 454 rows by LIKE and 1,728 by the index.
+async function ftsMatch(env, p) {
+  const term = p.searchTerm && p.searchTerm.trim();
+  if (!term || [...term].length < 3 || /[%_]/.test(term)) return null;
+  if ((p.providers || []).filter(Boolean).length) return null;
+  if (!(await hasTrigram(env))) return null;
+  // A quoted FTS5 string is matched as a substring; quotes inside it double.
+  return '"' + term.replace(/"/g, '""') + '"';
+}
+
+// The row count for a result set, from the precomputed tables where they can
 // answer it. COUNT(*) over `courses` reads the whole filtered set to produce one
 // number -- 28,000 rows for an unfiltered search -- and D1 bills rows read.
 //
-// Only the filters provider_counts is keyed by can be served this way: year,
-// level, and provider (an OR over the same column the table is grouped on, so
-// summing the matching rows is exactly equivalent). A request narrowed by
-// region, mode, qualification or a search term has to be counted live.
+// Every filter except the search term is a column those tables are grouped on,
+// and each is an OR over values of one column, so summing the matching rows is
+// exactly equivalent. provider_counts (~320 rows a cycle) serves year, level
+// and provider; filter_counts (~1,235) adds qualification, mode and region. A
+// search term has to be counted live -- by the trigram index when `w` uses it.
+//
+// One university plus a filter is counted live too: that reads at most the
+// university's own rows (1,036 for the largest), which is never more than
+// summing filter_counts. UCL with Bach(hons) read 384 rows live, 1,235 summed.
 async function countFor(env, p, w) {
-  const narrowed = (p.regions && p.regions.length) ||
-                   (p.studyModes && p.studyModes.length) ||
-                   (p.qualificationLevels && p.qualificationLevels.length) ||
-                   (p.searchTerm && p.searchTerm.trim());
-  if (!narrowed && p.academicYearId && p.studyLevel) {
-    const picked = (p.providers || []).filter(Boolean);
-    // One statement, so an empty table is distinguishable from a provider with
-    // no courses: `have` counts the cycle's rows regardless of the IN filter.
+  const has = v => v && v.filter(Boolean).length;
+  const narrowed = has(p.qualificationLevels) || has(p.studyModes) || has(p.regions);
+  const live = (p.searchTerm && p.searchTerm.trim()) || (narrowed && has(p.providers) === 1);
+  if (!live && p.academicYearId && p.studyLevel) {
+    const cond = [];
+    const args = [];
+    const list = (vals, col) => {
+      vals = (vals || []).filter(Boolean);
+      if (!vals.length) return;
+      cond.push(col + ' IN (' + vals.map(() => '?').join(',') + ')');
+      args.push(...vals);
+    };
+    list(p.providers, 'provider');
+    if (narrowed) {
+      list(p.qualificationLevels, 'award_level');
+      list(p.studyModes, 'study_mode');
+      list(p.regions, 'region');
+    }
+    // One statement, so an empty table is distinguishable from a filter with
+    // no courses: `have` counts the cycle's rows regardless of the filters.
     // Without that, an empty provider_counts made a filtered search report zero
     // courses instead of falling back -- it looked like a working search with no
     // results, which is the worst way for this to fail.
-    const sql = 'SELECT SUM(CASE WHEN 1' +
-          (picked.length ? ' AND provider IN (' + picked.map(() => '?').join(',') + ')' : '') +
-          ' THEN count ELSE 0 END) AS n, COUNT(*) AS have FROM provider_counts ' +
-          'WHERE year = ? AND level = ?';
+    const sql = 'SELECT SUM(CASE WHEN ' + (cond.length ? cond.join(' AND ') : '1') +
+          ' THEN count ELSE 0 END) AS n, COUNT(*) AS have FROM ' +
+          (narrowed ? 'filter_counts' : 'provider_counts') + ' WHERE year = ? AND level = ?';
     const row = await env.DB.prepare(sql)
-      .bind(...picked, String(p.academicYearId), p.studyLevel).first().catch(() => null);
+      .bind(...args, String(p.academicYearId), p.studyLevel).first().catch(() => null);
     if (row && row.have) return row.n || 0;
   }
   const countRow = await env.DB.prepare('SELECT COUNT(*) AS n FROM courses ' + w.sql)
@@ -118,11 +172,24 @@ async function countFor(env, p, w) {
   return countRow ? countRow.n : 0;
 }
 
+// Roughly the rows in a cycle, for choosing how to fetch a search's rows below.
+// Only the order of magnitude matters: both ways return the same rows.
+const CYCLE_ROWS = 30000;
+
 async function handleSearch(env, p) {
-  const w = where(p);
+  const match = await ftsMatch(env, p);
+  const w = where(p, match);
   const limit = Math.min(Number(p.limit) || 300, PAGE_MAX);
 
   const total = await countFor(env, p, w);
+
+  // The count says which way to fetch the rows is cheaper. The trigram index
+  // reads ~4 rows per match, all of them before it can sort. LIKE walks
+  // idx_sort in order and stops at `limit` matches, so it reads about
+  // limit * CYCLE_ROWS / total: 2,430 rows for business (3,817 matches) against
+  // 15,268 by the index, but 12,000 for physics (848) against 3,392. They cross
+  // where total^2 = limit * CYCLE_ROWS / 4 -- about 1,500 matches at 300.
+  const rw = match && total * total * 4 > limit * CYCLE_ROWS ? where(p) : w;
 
   // With a shortlist of universities, a plain alphabetical LIMIT can cut the
   // last ones off entirely — UCL sorts last, so it looked like it had no
@@ -135,10 +202,10 @@ async function handleSearch(env, p) {
   // identical requests.
   const sql = picked.length > 1
     ? 'SELECT * FROM (SELECT *, ROW_NUMBER() OVER (PARTITION BY provider ORDER BY title) AS rn ' +
-      'FROM courses ' + w.sql + ') ORDER BY rn, provider_sort, title, rowid_key LIMIT ?'
-    : 'SELECT * FROM courses ' + w.sql + ' ORDER BY provider_sort, title, rowid_key LIMIT ?';
+      'FROM courses ' + rw.sql + ') ORDER BY rn, provider_sort, title, rowid_key LIMIT ?'
+    : 'SELECT * FROM courses ' + rw.sql + ' ORDER BY provider_sort, title, rowid_key LIMIT ?';
 
-  const rows = await env.DB.prepare(sql).bind(...w.args, limit).all();
+  const rows = await env.DB.prepare(sql).bind(...rw.args, limit).all();
 
   return {
     total: total,
