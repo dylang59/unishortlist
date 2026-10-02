@@ -4,6 +4,19 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>uni shortlist: compare UK university courses side by side</title>
+<meta name="description" content="Search every UK undergraduate course on UCAS, compare entry requirements side by side across universities, and keep a shortlist. Free, no sign-up.">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="uni shortlist">
+<meta property="og:title" content="uni shortlist: compare UK university courses side by side">
+<meta property="og:description" content="Search every UK undergraduate course, compare entry requirements across universities, and keep a shortlist.">
+<meta name="twitter:card" content="summary">
+<script type="application/ld+json">
+{"@context":"https://schema.org","@type":"WebApplication","name":"uni shortlist",
+ "description":"Search every UK undergraduate course on UCAS, compare entry requirements side by side across universities, and keep a shortlist.",
+ "applicationCategory":"EducationalApplication","operatingSystem":"Any",
+ "isAccessibleForFree":true,"offers":{"@type":"Offer","price":"0","priceCurrency":"GBP"},
+ "inLanguage":"en-GB"}
+</script>
 <!-- SVG first for browsers that take it (one file, sharp at any size); the
      .ico is the fallback, and also stops /favicon.ico falling through to the
      SPA handler, which was serving the whole 70 KB page on every visit. -->
@@ -861,8 +874,8 @@
 
 <footer class="foot">
   <div class="wrap">
-    <span id="snapshotNote">Course data: UCAS</span>
-    <span>Student figures: Discover Uni</span>
+    <span id="snapshotNote" hidden></span>
+    <span>Student figures adapted from the Discover Uni dataset, <a href="https://www.hesa.ac.uk" target="_blank" rel="noopener">HESA</a>, <a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener">CC BY 4.0</a></span>
     <span>Nothing about you is stored on our servers; your shortlist stays in this browser.</span>
     <a id="exportLink" href="/export" hidden>bulk export &rarr;</a>
   </div>
@@ -1829,7 +1842,7 @@ function hesaMain(d, r){
 
   if(h) h += '<div class="scope" style="margin-top:14px">'
     + (r.courseLink === 'base' ? 'Figures are for the main course; this variant is listed with it. ' : '')
-    + 'Source: Discover Uni (OfS and HESA open data).</div>';
+    + 'Source: Discover Uni dataset, HESA (CC BY 4.0), summarised for display.</div>';
   return h;
 }
 
@@ -2648,8 +2661,9 @@ $('#fprovClear').onclick = ()=>{ clearProviders(); $('#fprov').focus(); };
     const when = new Date(d.meta[keys[0]]);
     const days = Math.floor((Date.now()-when)/86400000);
     const el = $('#snapshotNote');
-    el.title = 'This site serves a fixed snapshot, not live UCAS data';
-    el.textContent = 'Course data: UCAS snapshot, ' +
+    el.title = 'This site serves a fixed snapshot of course data, not live listings';
+    el.hidden = false;
+    el.textContent = 'Course data snapshot, ' +
       when.toLocaleDateString('en-GB', {day:'numeric', month:'long', year:'numeric'}) +
       (days > 0 ? ' (' + days + (days === 1 ? ' day' : ' days') + ' old)' : '');
   }catch(e){ /* local server has no snapshot; nothing to show */ }

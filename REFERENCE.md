@@ -391,6 +391,11 @@ National Student Survey themes, salaries at 15 months (survey) and 3 and 5
 years (tax records), what graduates are doing 15 months on, common jobs,
 accreditation, and placement, year-abroad and foundation-year options.
 
+**Licence.** The Discover Uni dataset is CC BY 4.0. Reuse must credit HESA
+(www.hesa.ac.uk), link the licence, and say whether the data was changed. The
+site footer carries that line on every page, and the panel repeats it beside
+the figures. Keep both if either is reworded.
+
 **How it gets there.** The link matcher returns the Discover Uni course key,
 `PUBUKPRN|UKPRN|KISCOURSEID|KISMODE`, which every Discover Uni table joins on.
 It is stored on the row as `kis_key`. `hesa.js` turns each key into one compact

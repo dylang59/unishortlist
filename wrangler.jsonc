@@ -6,11 +6,13 @@
 
   // Static pages (search + export UI) are served straight from assets; the
   // Worker only handles /api/*. run_worker_first keeps the API routes from
-  // being shadowed by a same-named asset.
+  // being shadowed by a same-named asset. The app routes by #hash, never by
+  // path, so an unknown path gets a real 404 (public/404.html) rather than
+  // the home page with a 200, which search engines index as a duplicate.
   "assets": {
     "directory": "./public",
     "binding": "ASSETS",
-    "not_found_handling": "single-page-application",
+    "not_found_handling": "404-page",
     "run_worker_first": ["/api/*"]
   },
 

@@ -1,0 +1,18 @@
+# uni shortlist
+
+> A free search over every UK undergraduate course listed on UCAS, built for comparing entry requirements side by side across universities and keeping a shortlist. It serves a monthly snapshot of UCAS course data (about 30,000 course options for 2027 entry, plus 2026 and 2025), so figures can be a few weeks behind UCAS itself.
+
+What a visitor can do on the site:
+
+- Search by subject and by one or more universities, or leave either blank to search everything.
+- Filter by qualification (Bachelor's, integrated Master's, foundation year, HND and others), full-time or part-time study, UK region, and a maximum entry requirement from BBB to A*A*A.
+- Sort by university, course name or entry requirement. Entry requirements given as A-level grades and as UCAS tariff points are converted to one scale, so the two can be compared and ranked.
+- Open a course to see its UCAS page link and Discover Uni figures, such as the spread of entrants' tariff points.
+- Pick universities quickly from the 2027 Times and Sunday Times Good University Guide, the Guardian University Guide, or the UK universities in the QS World University Rankings.
+- Star courses into a shortlist, save searches, share either as a link, and export results to CSV. The shortlist and saved searches stay in the visitor's browser; nothing about them is stored on the server.
+
+Sources: course data from UCAS; student figures adapted from the Discover Uni dataset by HESA (https://www.hesa.ac.uk), licensed under CC BY 4.0 (https://creativecommons.org/licenses/by/4.0/). The site is independent and is not affiliated with UCAS.
+
+## Pages
+
+- [Course search](/): the whole application; searches, shortlists and shared links all open here.

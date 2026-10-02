@@ -657,7 +657,9 @@ const server = http.createServer(async (req, res) => {
                : ext === '.css' ? 'text/css'
                : ext === '.svg' ? 'image/svg+xml'
                : ext === '.ico' ? 'image/x-icon'
-               : ext === '.png' ? 'image/png' : 'application/octet-stream';
+               : ext === '.png' ? 'image/png'
+               : ext === '.txt' ? 'text/plain; charset=utf-8'
+               : ext === '.xml' ? 'application/xml' : 'application/octet-stream';
     res.writeHead(200, { 'Content-Type': type });
     res.end(buf);
   });

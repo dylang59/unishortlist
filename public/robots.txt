@@ -1,0 +1,8 @@
+# The site is one page; everything else is the JSON API behind it, which
+# crawlers have no use for and which costs a D1 query per hit.
+User-agent: *
+Allow: /
+Disallow: /api/
+# Bulk export only works when run locally; on this site it is a dead end.
+Disallow: /export
+
