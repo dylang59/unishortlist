@@ -1,6 +1,436 @@
 // UK overall rankings, 2027 editions. Sources and retrieval date are stored per list.
 // Names are mapped explicitly to UCAS providers; ties retain their published rank.
 const RANKING_LISTS = {
+  "qs": {
+    "title": "QS World University Rankings \u00b7 UK",
+    "year": 2027,
+    "source": "https://issc.co.uk/uk-university-rankings/qs/default.asp?year=2027qs",
+    "publisher": "https://www.topuniversities.com/world-university-rankings",
+    "checked": "2026-10-02",
+    "note": "UK positions derived from QS world ranks; universities QS lists without a rank are left out.",
+    "entries": [
+      {
+        "rank": 1,
+        "tied": false,
+        "label": "Imperial College London",
+        "name": "Imperial College London",
+        "world": 2
+      },
+      {
+        "rank": 2,
+        "tied": false,
+        "label": "Oxford",
+        "name": "University of Oxford",
+        "world": 4
+      },
+      {
+        "rank": 3,
+        "tied": false,
+        "label": "Cambridge",
+        "name": "University of Cambridge",
+        "world": 6
+      },
+      {
+        "rank": 4,
+        "tied": false,
+        "label": "UCL",
+        "name": "UCL (University College London)",
+        "world": 8
+      },
+      {
+        "rank": 5,
+        "tied": false,
+        "label": "Edinburgh",
+        "name": "The University of Edinburgh",
+        "world": 35
+      },
+      {
+        "rank": 6,
+        "tied": false,
+        "label": "King\u2019s College London",
+        "name": "King's College London, University of London",
+        "world": 37
+      },
+      {
+        "rank": 7,
+        "tied": false,
+        "label": "Manchester",
+        "name": "University of Manchester",
+        "world": 40
+      },
+      {
+        "rank": 8,
+        "tied": false,
+        "label": "Bristol",
+        "name": "University of Bristol",
+        "world": 57
+      },
+      {
+        "rank": 9,
+        "tied": false,
+        "label": "LSE",
+        "name": "London School of Economics and Political Science, University of London",
+        "world": 62
+      },
+      {
+        "rank": 10,
+        "tied": true,
+        "label": "Warwick",
+        "name": "University of Warwick",
+        "world": 68
+      },
+      {
+        "rank": 10,
+        "tied": true,
+        "label": "Birmingham",
+        "name": "University of Birmingham",
+        "world": 68
+      },
+      {
+        "rank": 12,
+        "tied": false,
+        "label": "Leeds",
+        "name": "University of Leeds",
+        "world": 77
+      },
+      {
+        "rank": 13,
+        "tied": false,
+        "label": "Glasgow",
+        "name": "University of Glasgow",
+        "world": 80
+      },
+      {
+        "rank": 14,
+        "tied": false,
+        "label": "Sheffield",
+        "name": "University of Sheffield",
+        "world": 82
+      },
+      {
+        "rank": 15,
+        "tied": false,
+        "label": "Durham",
+        "name": "Durham University",
+        "world": 85
+      },
+      {
+        "rank": 16,
+        "tied": false,
+        "label": "Nottingham",
+        "name": "University of Nottingham",
+        "world": 97
+      },
+      {
+        "rank": 17,
+        "tied": false,
+        "label": "Queen Mary, London",
+        "name": "Queen Mary University of London",
+        "world": 103
+      },
+      {
+        "rank": 18,
+        "tied": false,
+        "label": "Southampton",
+        "name": "University of Southampton",
+        "world": 111
+      },
+      {
+        "rank": 19,
+        "tied": false,
+        "label": "St Andrews",
+        "name": "University of St Andrews",
+        "world": 115
+      },
+      {
+        "rank": 20,
+        "tied": false,
+        "label": "Bath",
+        "name": "University of Bath",
+        "world": 125
+      },
+      {
+        "rank": 21,
+        "tied": false,
+        "label": "Exeter",
+        "name": "University of Exeter",
+        "world": 136
+      },
+      {
+        "rank": 22,
+        "tied": false,
+        "label": "Liverpool",
+        "name": "University of Liverpool",
+        "world": 139
+      },
+      {
+        "rank": 23,
+        "tied": false,
+        "label": "Newcastle",
+        "name": "Newcastle University",
+        "world": 149
+      },
+      {
+        "rank": 24,
+        "tied": false,
+        "label": "York",
+        "name": "University of York",
+        "world": 158
+      },
+      {
+        "rank": 25,
+        "tied": false,
+        "label": "Lancaster",
+        "name": "Lancaster University",
+        "world": 164
+      },
+      {
+        "rank": 26,
+        "tied": false,
+        "label": "Queen\u2019s Belfast",
+        "name": "Queen's University Belfast",
+        "world": 174
+      },
+      {
+        "rank": 27,
+        "tied": false,
+        "label": "Cardiff",
+        "name": "Cardiff University",
+        "world": 179
+      },
+      {
+        "rank": 28,
+        "tied": false,
+        "label": "Reading",
+        "name": "University of Reading",
+        "world": 196
+      },
+      {
+        "rank": 29,
+        "tied": false,
+        "label": "Loughborough",
+        "name": "Loughborough University",
+        "world": 203
+      },
+      {
+        "rank": 30,
+        "tied": false,
+        "label": "Strathclyde",
+        "name": "University of Strathclyde",
+        "world": 230
+      },
+      {
+        "rank": 31,
+        "tied": false,
+        "label": "Surrey",
+        "name": "University of Surrey",
+        "world": 246
+      },
+      {
+        "rank": 32,
+        "tied": false,
+        "label": "Sussex",
+        "name": "University of Sussex",
+        "world": 273
+      },
+      {
+        "rank": 33,
+        "tied": false,
+        "label": "Aberdeen",
+        "name": "University of Aberdeen",
+        "world": 288
+      },
+      {
+        "rank": 34,
+        "tied": false,
+        "label": "Leicester",
+        "name": "University of Leicester",
+        "world": 314
+      },
+      {
+        "rank": 35,
+        "tied": false,
+        "label": "Swansea",
+        "name": "Swansea University",
+        "world": 322
+      },
+      {
+        "rank": 36,
+        "tied": false,
+        "label": "Heriot-Watt",
+        "name": "Heriot-Watt University",
+        "world": 325
+      },
+      {
+        "rank": 37,
+        "tied": false,
+        "label": "Brunel",
+        "name": "Brunel University of London",
+        "world": 353
+      },
+      {
+        "rank": 38,
+        "tied": false,
+        "label": "Birkbeck",
+        "name": "Birkbeck, University of London",
+        "world": 354
+      },
+      {
+        "rank": 39,
+        "tied": false,
+        "label": "City St George's, University of London",
+        "name": "City St George's, University of London",
+        "world": 361
+      },
+      {
+        "rank": 40,
+        "tied": false,
+        "label": "East Anglia UEA",
+        "name": "University of East Anglia UEA",
+        "world": 381
+      },
+      {
+        "rank": 41,
+        "tied": false,
+        "label": "Oxford Brookes",
+        "name": "Oxford Brookes University",
+        "world": 411
+      },
+      {
+        "rank": 42,
+        "tied": false,
+        "label": "Kent",
+        "name": "University of Kent",
+        "world": 415
+      },
+      {
+        "rank": 43,
+        "tied": false,
+        "label": "Aston University, Birmingham",
+        "name": "Aston University, Birmingham",
+        "world": 416
+      },
+      {
+        "rank": 44,
+        "tied": false,
+        "label": "Essex",
+        "name": "University of Essex",
+        "world": 438
+      },
+      {
+        "rank": 45,
+        "tied": false,
+        "label": "Dundee",
+        "name": "University of Dundee",
+        "world": 447
+      },
+      {
+        "rank": 46,
+        "tied": false,
+        "label": "SOAS",
+        "name": "SOAS University of London",
+        "world": 458
+      },
+      {
+        "rank": 47,
+        "tied": false,
+        "label": "Royal Holloway",
+        "name": "Royal Holloway, University of London",
+        "world": 485
+      },
+      {
+        "rank": 48,
+        "tied": false,
+        "label": "Bradford",
+        "name": "University of Bradford",
+        "world": 497
+      },
+      {
+        "rank": 49,
+        "tied": false,
+        "label": "Huddersfield",
+        "name": "University of Huddersfield",
+        "world": 521
+      },
+      {
+        "rank": 50,
+        "tied": false,
+        "label": "Northumbria",
+        "name": "Northumbria University, Newcastle",
+        "world": 528
+      },
+      {
+        "rank": 51,
+        "tied": false,
+        "label": "Stirling",
+        "name": "University of Stirling",
+        "world": 560
+      },
+      {
+        "rank": 52,
+        "tied": false,
+        "label": "Bangor",
+        "name": "Bangor University",
+        "world": 567
+      },
+      {
+        "rank": 53,
+        "tied": false,
+        "label": "Hull",
+        "name": "University of Hull",
+        "world": 575
+      },
+      {
+        "rank": 54,
+        "tied": false,
+        "label": "Coventry",
+        "name": "Coventry University",
+        "world": 581
+      },
+      {
+        "rank": 55,
+        "tied": false,
+        "label": "Ulster",
+        "name": "Ulster University",
+        "world": 595
+      },
+      {
+        "rank": 56,
+        "tied": false,
+        "label": "Manchester Metropolitan",
+        "name": "Manchester Metropolitan University",
+        "world": 600
+      },
+      {
+        "rank": 57,
+        "tied": false,
+        "label": "Nottingham Trent",
+        "name": "Nottingham Trent University",
+        "world": 639
+      },
+      {
+        "rank": 58,
+        "tied": false,
+        "label": "Portsmouth",
+        "name": "University of Portsmouth",
+        "world": 662
+      },
+      {
+        "rank": 59,
+        "tied": false,
+        "label": "Kingston",
+        "name": "Kingston University",
+        "world": 686
+      },
+      {
+        "rank": 60,
+        "tied": false,
+        "label": "Plymouth",
+        "name": "University of Plymouth",
+        "world": 691
+      }
+    ]
+  },
   "times": {
     "title": "The Times & Sunday Times Good University Guide",
     "year": 2027,
