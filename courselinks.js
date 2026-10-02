@@ -85,8 +85,15 @@ const VARIANT = new RegExp('\\b(' + [
 // "Accounting and Finance (R52)", "Arts and Humanities (Art History) (R14-AH)";
 // Discover Uni's titles leave it out.
 const QUALCODE = /\(\s*[A-Z]{1,2}\d{1,3}(-[A-Z]{1,3})?\s*\)/g;
+// Some providers lead or end the UCAS title with the award -- UCL's
+// "Philosophy, Politics and Economics BSc", NTU's "BMus Songwriting" -- where
+// Discover Uni's title is the subject alone. Only at either end, so a title
+// that merely contains one ("Bachelor of Laws (UCL) and LLB ...") is left be.
+const AWARD = '(ba|bsc|beng|meng|msci|mmath|mphys|mchem|mbiol|mpharm|llb|bmus|bed|bdes|mdes|' +
+  'barch|march|bfa|bn|bmedsci|fda|fdsc|fdeng)';
+const AWARDS = new RegExp('^\\s*' + AWARD + '\\b|\\b' + AWARD + '\\s*$', 'g');
 const base = t => norm(String(t || '').replace(QUALCODE, ' ').replace(/\(([^)]*)\)/g, ' $1 ')
-  .toLowerCase().replace(VARIANT, ' '));
+  .toLowerCase().replace(VARIANT, ' ')).replace(AWARDS, ' ').trim();
 
 function push(map, k, v) { (map[k] = map[k] || []).push(v); }
 
@@ -224,13 +231,16 @@ function report(items, links, log) {
 // one used to stop at provider_url and never saw the ukprn after it.
 function snapshotRows(file) {
   const rows = [];
-  let col = null;
+  // Only tuples under an INSERT into courses: the snapshot also carries the
+  // hesa records, which read as 19,584 course rows with no provider or UKPRN.
+  let col = null, inCourses = false;
   for (const line of fs.readFileSync(file, 'utf8').split('\n')) {
-    if (!col && line.startsWith('INSERT')) {
-      const m = line.match(/\(([^)]*)\)\s*VALUES/);
+    if (line.startsWith('INSERT')) {
+      inCourses = /^INSERT( OR REPLACE)? INTO courses \(/.test(line);
+      const m = inCourses && !col && line.match(/\(([^)]*)\)\s*VALUES/);
       if (m) col = Object.fromEntries(m[1].split(',').map((c, i) => [c.trim(), i]));
     }
-    if (!line.startsWith("('")) continue;
+    if (!inCourses || !line.startsWith("('")) continue;
     const t = [];
     let i = 1;
     while (i < line.length) {

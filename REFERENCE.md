@@ -276,8 +276,11 @@ internal number, not the application code (`N321`) UCAS shows. So the join is:
 2. **Exact title**, normalised (case, punctuation, filler words). → `course_link='exact'`
 3. **Base title**, with variant suffixes stripped: "with a Year in Industry",
    "with Foundation Year", "(4 years)", the Open University's "(R52)" and the
-   like. Discover Uni usually lists only the base course, and its page covers
-   the variants. → `course_link='base'`
+   like, plus an award at either end of the title ("Philosophy, Politics and
+   Economics BSc", "LLB Law"), which Discover Uni's titles leave out. Discover
+   Uni usually lists only the base course, and its page covers the variants.
+   An integrated master's can land on the bachelor's page this way when that
+   is all Discover Uni lists. → `course_link='base'`
 4. If the provider has no matching title, the same two title checks among
    courses whose page is **on the provider's own site**, whoever they are filed
    under.
@@ -301,8 +304,9 @@ Discover Uni as lancs.ac.uk. On 2026-10-02 the deployed snapshot turned out to
 predate the `ukprn` column. It had been linked by backfill, so every row went
 through the domain fallback and all 474 Lancaster rows had no link.
 
-**Coverage, 2027 undergraduate (2026-10-02):** 77.1% of rows linked with
-UKPRNs in place, up from 74.6% matching by domain alone. Most of the
+**Coverage, 2027 undergraduate (2026-10-02):** 77.6% of rows linked: 74.6%
+matching by domain alone, 77.1% with UKPRNs in place, and 163 more once awards
+in the title were stripped (UCL's PPE BSc was the case that showed it). Most of the
 selective universities sit at 85-99%. A sample of 80 links (before the change):
 69 loaded, 10 returned 403 to a script (bot protection on UCL, MMU and others;
 not checked in a browser), 1 was a real 404.
