@@ -248,7 +248,7 @@ the UCAS rows at import time and stores the result in `course_url`.
 hand from https://www.hesa.ac.uk/support/tools-and-downloads/unistats and unzip
 it to `data/hesa/DiscoverUni_latest` (git-ignored, ~450 MB, of which only
 `KISCOURSE.csv` and `INSTITUTION.csv` are read). It is updated weekly; once a
-cycle is enough.
+cycle is enough. Load it before the snapshot step, or re-link afterwards (below).
 
 **There is no shared course key.** Discover Uni's `UCASCOURSEID` is a four-digit
 internal number, not the application code (`N321`) UCAS shows. So the join is:
@@ -258,16 +258,49 @@ internal number, not the application code (`N321`) UCAS shows. So the join is:
    `PROVURL`, which lags rebrands (`soton.ac.uk`, `anglia.ac.uk`).
 2. **Exact title**, normalised (case, punctuation, filler words). → `course_link='exact'`
 3. **Base title**, with variant suffixes stripped: "with a Year in Industry",
-   "with Foundation Year", "(4 years)" and the like. Discover Uni usually lists
-   only the base course, and its page covers the variants. → `course_link='base'`
+   "with Foundation Year", "(4 years)", the Open University's "(R52)" and the
+   like. Discover Uni usually lists only the base course, and its page covers
+   the variants. → `course_link='base'`
+4. If the provider has no matching title, the same two title checks among
+   courses whose page is **on the provider's own site**, whoever they are filed
+   under.
 
 Ties go to the course whose `KISCOURSEID` or URL contains the application code
 (LSE embeds it in the id, Lancaster in the URL), then to the matching mode.
 
-**Coverage, 2027 undergraduate (2026-10-02):** 74.6% of rows linked (19,848
-exact, 2,365 base). Most of the selective universities sit at 85-99%. A sample of
-80 links: 69 loaded, 10 returned 403 to a script (bot protection on UCL, MMU and
-others; not checked in a browser), 1 was a real 404.
+**UCAS's UKPRN is Discover Uni's `PUBUKPRN`, not its `UKPRN`.** Discover Uni has
+two provider numbers: `UKPRN` is the registering provider, `PUBUKPRN` the one
+the course is published under. Of the 320 providers in 2027, 293 appear as a
+`PUBUKPRN` and none only as a `UKPRN`; the other 27 are not in Discover Uni.
+Matching on `UKPRN` missed franchised providers (UA92 is registered by
+Lancaster) and offered a registering university its partners' courses, which
+is how Reading's Children's Development and Learning came to link to bcot.ac.uk.
+Step 4 exists because the reverse also happens: Coleg Sir Gar's degrees are
+published under UWTSD's number but live on colegsirgar.ac.uk.
+
+**The UKPRN has to reach the matcher.** The domain fallback cannot bridge a
+domain the two datasets disagree on: UCAS gives Lancaster as lancaster.ac.uk,
+Discover Uni as lancs.ac.uk. On 2026-10-02 the deployed snapshot turned out to
+predate the `ukprn` column. It had been linked by backfill, so every row went
+through the domain fallback and all 474 Lancaster rows had no link.
+
+**Coverage, 2027 undergraduate (2026-10-02):** 77.1% of rows linked with
+UKPRNs in place, up from 74.6% matching by domain alone. Most of the
+selective universities sit at 85-99%. A sample of 80 links (before the change):
+69 loaded, 10 returned 403 to a script (bot protection on UCL, MMU and others;
+not checked in a browser), 1 was a real 404.
+
+**Every run prints a coverage report**: totals by match route, a warning if the
+rows carry no UKPRN, and each provider with five or more rows and no links,
+with the reason: no UKPRN from UCAS, a UKPRN Discover Uni does not have, or a
+provider it has but whose titles did not match. Read it after each import; a
+university that drops to zero shows up there by name.
+
+**Re-linking after a new Discover Uni download** without re-pulling from
+Algolia: `node courselinks.js --snapshot snapshot-2027.sql --out links.sql`,
+then run `links.sql` against D1. It clears the cycle's links before writing,
+so links the matcher no longer makes are removed. It reads columns by name, so
+it needs a snapshot that has the `ukprn` column.
 
 **Known weak spots.** St Andrews and Glasgow submit one page per subject, so
 joint degrees link to a single-subject page. Discover Uni runs a cycle behind

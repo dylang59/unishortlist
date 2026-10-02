@@ -275,9 +275,9 @@ async function main() {
   console.log('  with requirements : ' + withT.toLocaleString() +
               '  (' + ((withT / res.rows.length) * 100).toFixed(1) + '%)');
   if (links) {
-    const linked = res.rows.filter(h => linkFor(h, links)).length;
-    console.log('  with course page  : ' + linked.toLocaleString() +
-                '  (' + ((linked / res.rows.length) * 100).toFixed(1) + '%)');
+    courselinks.report(res.rows.map(h => ({
+      provider: (h.provider || {}).name, ukprn: (h.provider || {}).ukprn, m: linkFor(h, links),
+    })), links);
   }
   console.log('  upstream queries  : ' + res.queries);
   console.log('\nNext:');
