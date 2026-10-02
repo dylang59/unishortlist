@@ -63,8 +63,8 @@
   button.teal:hover:not(:disabled){background:#5ee0bb;border-color:#5ee0bb}
   button.quiet{background:transparent;border-color:transparent;color:var(--dim)}
   button.quiet:hover{background:var(--panel);border-color:var(--line);color:var(--text)}
-  button.saved{background:var(--action-tint);color:var(--action);border-color:#7e9636;font-weight:650}
-  button.saved:hover{border-color:var(--action);background:#334020}
+  button.is-saved{background:var(--action-tint);color:var(--action);border-color:#7e9636;font-weight:650}
+  button.is-saved:hover{border-color:var(--action);background:#334020}
   /* Page sections share one column: content starts at the logo's edge on every
      screen and stops at a comfortable width on a wide monitor. */
   .wrap{width:100%;max-width:1440px;margin-left:auto;margin-right:auto;padding-left:24px;padding-right:24px}
@@ -114,19 +114,29 @@
   .pchips{display:contents}
 
   /* ---- Results: summary, filters, header ----------------------------- */
-  .summary{padding-top:18px;display:flex;flex-wrap:wrap;align-items:center;gap:8px}
-  .sumsubject{font-size:18px;font-weight:650;letter-spacing:-.3px;margin-right:2px}
-  .sumunis{display:contents}
-  .sumunis .tag{margin:0}
-  #editSearch{height:30px;padding:0 10px}
+  /* Over the results the same form stays live, one slim row in the same
+     order: change the subject or the universities and search again without
+     leaving the page. The labels stay for screen readers only. */
+  #searchForm.compact{padding-top:14px}
+  .compact .sform{padding:8px;gap:8px;background:transparent;border-color:transparent;padding-left:0;padding-right:0}
+  .compact .field>label{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+  .compact .field>input{height:38px}
+  .compact .unibox{min-height:38px;padding:3px 30px 3px 4px}
+  .compact .field .unibox input{height:30px;min-height:0}
+  .compact .sactions button{height:38px;padding:0 20px}
+  .advchips{display:contents}
+  .advchips .pchip{background:var(--panel2);border-color:var(--line)}
+  #moreFilters{height:32px;padding:0 8px;color:var(--accent)}
+  #moreFilters[aria-expanded="true"]{color:var(--text)}
   .listhead{padding-top:28px}
   .listhead h1{margin:0 0 4px;font-size:26px;font-weight:650;letter-spacing:-.6px}
   .listhead p{margin:0;font-size:13px}
-  .filters{padding-top:12px;display:flex;flex-wrap:wrap;align-items:center;gap:8px}
-  .flabel{font-size:12px;color:var(--dim)}
+  .filters{flex-basis:100%;padding-top:2px;display:flex;flex-wrap:wrap;align-items:center;gap:8px}
   .filters select{height:32px;font-size:12.5px;background:var(--panel)}
   .bar{display:flex;gap:8px;align-items:center;flex-wrap:wrap;padding-top:14px;padding-bottom:10px;
-    border-bottom:1px solid var(--line)}
+    position:relative}
+  /* Drawn inside the padding, so the line starts and ends with the table. */
+  .bar::after{content:"";position:absolute;left:24px;right:24px;bottom:0;height:1px;background:var(--line)}
   .bar .rstat{font-size:13px;color:var(--dim)}
   .bar .rstat b{color:var(--text);font-weight:650;font-variant-numeric:tabular-nums}
   .bar .sortlab{font-size:12px;margin-left:8px}
@@ -150,6 +160,11 @@
     .sform{grid-template-columns:1fr;padding:14px}
     .sactions button{flex:1}
     .bar .sortlab,.bar #sort{display:none}
+    .bar::after{left:16px;right:16px}
+    /* Over results: universities on one row, subject and Search on the next. */
+    .compact .sform{grid-template-columns:minmax(0,1fr) auto}
+    .compact .sform .field:first-child{grid-column:1 / -1}
+    .compact .sactions button{flex:none}
   }
   /* Logo, three tabs and the year do not fit across a phone, so the tabs take
      a row of their own under the logo and year. */
@@ -638,7 +653,6 @@
   .unibox .pchip{background:var(--panel);border-color:#3a4352}
   .unibox .pchip:hover{border-color:#5b6678}
   .unibox .clear{right:4px}
-  .sumunis .tag{font-size:12.5px;padding:3px 9px;color:#cbd7e8;background:var(--panel);vertical-align:0}
   #panel .pacts{margin:0 0 10px}
   .saved{margin:28px 0 0;padding:0;max-width:none}
   .saved .scard{max-width:1000px}
@@ -660,24 +674,24 @@
   <div class="topin">
     <button id="home" class="logo" aria-label="uni shortlist, start a new search" title="Start a new search &mdash; keeps your universities">uni <span>shortlist</span></button>
     <nav class="tabs" aria-label="Main">
-      <button id="searchTab" class="tab" aria-current="page">Search</button>
-      <button id="shortlistBtn" class="tab" title="Courses you have starred">Shortlist <span class="count" id="shortlistCount">0</span></button>
-      <button id="searchesBtn" class="tab" title="Subjects and universities you have saved">Saved searches <span class="count" id="searchesCount">0</span></button>
+      <button id="searchTab" class="tab" aria-current="page">find courses</button>
+      <button id="shortlistBtn" class="tab" title="Courses you have starred">my shortlist <span class="count" id="shortlistCount">0</span></button>
+      <button id="searchesBtn" class="tab" title="Subjects and universities you have saved">saved searches <span class="count" id="searchesCount">0</span></button>
     </nav>
     <div class="yearpick">
-      <label for="year">Entry year</label>
+      <label for="year">entry year</label>
       <select id="year">
         <option value="2027">2027 entry</option>
         <option value="2026">2026 entry</option>
         <option value="2025">2025 entry</option>
-        <option value="">Any year</option>
+        <option value="">any year</option>
       </select>
     </div>
   </div>
 </header>
 
 <section id="hero" class="wrap hero">
-  <h1>Find your course.</h1>
+  <h1>find your course.</h1>
   <p>Search every UK undergraduate course, compare entry requirements side by side, and keep a shortlist of the ones you like.</p>
 </section>
 
@@ -686,44 +700,70 @@
 <section id="searchForm" class="wrap">
   <div class="sform">
     <div class="field">
-      <label for="fprov">Where do you want to study? <span class="dim">Leave empty for every university</span></label>
+      <label for="fprov">where do you want to study? <span class="dim">leave empty for every university</span></label>
       <div class="combo unibox">
         <span id="provChips" class="pchips"></span>
-        <input id="fprov" placeholder="Type a university, e.g. Durham" autocomplete="off"
+        <input id="fprov" placeholder="type a university, e.g. Durham" autocomplete="off"
                role="combobox" aria-expanded="false" aria-autocomplete="list" aria-controls="provlist">
         <button id="fprovClear" class="clear" title="Clear all universities" aria-label="Clear all universities" hidden>×</button>
         <div id="provlist" class="menu" role="listbox" hidden></div>
       </div>
     </div>
     <div class="field">
-      <label for="q">What do you want to study?</label>
+      <label for="q">what do you want to study?</label>
       <input id="q" placeholder="e.g. physics, or leave blank for any subject" autocomplete="off">
     </div>
     <div class="sactions">
-      <button class="primary" id="go">Search</button>
-      <button id="cancelEdit" hidden>Cancel</button>
+      <button class="primary" id="go">search</button>
     </div>
   </div>
 </section>
 
-<section id="summary" class="wrap summary" hidden>
-  <span id="sumSubject" class="sumsubject"></span>
-  <span id="sumAt" class="dim"></span>
-  <span id="sumUnis" class="sumunis"></span>
-  <button id="editSearch" class="quiet">Edit search</button>
-</section>
-
 <section id="listHead" class="wrap listhead" hidden>
-  <h1 id="listTitle">Your shortlist</h1>
+  <h1 id="listTitle">my shortlist</h1>
   <p id="listSummary" class="dim"></p>
 </section>
 
-<!-- Every filter in one row. Qualification, mode and region re-run the
-     search; the entry cap narrows the rows already loaded. -->
-<section id="filterRow" class="wrap filters" hidden>
-  <span class="flabel">Filter</span>
+<!-- The results header: count, sort and the entry cap on the left, the
+     actions on the right in their own colours, so they never read as more
+     filters. The three rarer filters sit behind "More filters". -->
+<div class="bar wrap" hidden>
+  <span id="cStat" class="rstat" role="status"></span>
+  <button id="loadMore" class="quiet" hidden>load up to 1,000</button>
+  <label for="sort" class="dim sortlab">sort</label>
+  <select id="sort">
+    <option value="" hidden>by column</option>
+    <option value="provider:1">university</option>
+    <option value="title:1">course name</option>
+    <option value="entry:-1">entry requirement, highest first</option>
+    <option value="entry:1">entry requirement, lowest first</option>
+  </select>
+  <label for="maxEntry" class="dim sortlab res-only">entry</label>
+  <select id="maxEntry" class="res-only">
+    <option value="">any requirement</option>
+    <option value="120">up to BBB</option>
+    <option value="128">up to ABB</option>
+    <option value="136">up to AAB</option>
+    <option value="144">up to AAA</option>
+    <option value="152">up to A*AA</option>
+    <option value="160">up to A*A*A</option>
+  </select>
+  <button id="moreFilters" class="quiet res-only" aria-expanded="false" aria-controls="filterRow">more filters</button>
+  <span id="advChips" class="advchips res-only"></span>
+  <span class="grow"></span>
+  <button id="adoptList" class="primary" hidden>add to my shortlist</button>
+  <button id="saveSearch" class="primary" aria-pressed="false" hidden
+          title="Keep this subject, these universities and filters to run again">☆ save search</button>
+  <button id="shareSearch" class="blue" hidden title="Copy a link that runs this search">share search</button>
+  <button id="shareList" class="blue" hidden title="Copy a link that opens this shortlist anywhere">share shortlist</button>
+  <button id="csv" class="teal" disabled>export CSV</button>
+
+  <!-- Qualification, mode and region: they change what is fetched, so each
+     re-runs the search. A full-width row inside the header, above its line. Hidden until asked for; one in use shows as a chip
+     beside "More filters", so a search is never narrowed out of sight. -->
+<div id="filterRow" class="filters" hidden>
   <select id="qual" aria-label="Qualification">
-    <option value="">Any qualification</option>
+    <option value="">any qualification</option>
     <option value="Bach(hons)">Bachelor (Hons)</option>
     <option value="Bachelor">Bachelor (ordinary)</option>
     <option value="IMD">Integrated Masters</option>
@@ -732,22 +772,13 @@
     <option value="Cer">Certificate (HNC/CertHE)</option>
     <option value="Dip">Diploma (HND/DipHE)</option>
   </select>
-  <select id="maxEntry" aria-label="Entry requirement">
-    <option value="">Any entry requirement</option>
-    <option value="120">Up to BBB</option>
-    <option value="128">Up to ABB</option>
-    <option value="136">Up to AAB</option>
-    <option value="144">Up to AAA</option>
-    <option value="152">Up to A*AA</option>
-    <option value="160">Up to A*A*A</option>
-  </select>
   <select id="mode" aria-label="Study mode">
-    <option value="">Any study mode</option>
+    <option value="">any study mode</option>
     <option>Full-time</option>
     <option>Part-time</option>
   </select>
   <select id="region" aria-label="Region">
-    <option value="">Anywhere in the UK</option>
+    <option value="">anywhere in the UK</option>
     <option>Greater London</option>
     <option>South East England</option>
     <option>South West England</option>
@@ -761,29 +792,8 @@
     <option>Wales</option>
     <option>Northern Ireland</option>
   </select>
-  <button type="button" id="clearFilters" class="clear-all" hidden>Clear filters</button>
-</section>
-
-<!-- The results header: count and sort on the left, the actions on the right
-     in their own colours, so they never read as more filters. -->
-<div class="bar wrap" hidden>
-  <span id="cStat" class="rstat" role="status"></span>
-  <button id="loadMore" class="quiet" hidden>Load up to 1,000</button>
-  <label for="sort" class="dim sortlab">Sort</label>
-  <select id="sort">
-    <option value="" hidden>By column</option>
-    <option value="provider:1">University</option>
-    <option value="title:1">Course name</option>
-    <option value="entry:-1">Entry requirement, highest first</option>
-    <option value="entry:1">Entry requirement, lowest first</option>
-  </select>
-  <span class="grow"></span>
-  <button id="adoptList" class="primary" hidden>Add to my shortlist</button>
-  <button id="saveSearch" class="primary" aria-pressed="false" hidden
-          title="Keep this subject, these universities and filters to run again">☆ Save search</button>
-  <button id="shareSearch" class="blue" hidden title="Copy a link that runs this search">Share search</button>
-  <button id="shareList" class="blue" hidden title="Copy a link that opens this shortlist anywhere">Share shortlist</button>
-  <button id="csv" class="teal" disabled>Export CSV</button>
+  <button type="button" id="clearFilters" class="clear-all" hidden>clear filters</button>
+</div>
 </div>
 
 <div class="wrap"><div class="note" id="note" hidden></div></div>
@@ -792,27 +802,27 @@
   <section class="welcome">
     <div class="starter-paths">
     <section class="starter-path university-starters" aria-labelledby="universitiesTitle">
-      <h3 id="universitiesTitle">Where do you want to study?</h3>
+      <h3 id="universitiesTitle">where do you want to study?</h3>
       <p class="hint">Pick up to five, then compare their courses side by side. Everything you search next stays within them.</p>
       <div class="ranking-controls">
-        <div class="field"><label for="rankingSource">University ranking</label>
+        <div class="field"><label for="rankingSource">university ranking</label>
           <select id="rankingSource"><option value="qs">QS World · UK</option><option value="times">Times &amp; Sunday Times</option><option value="guardian">Guardian</option></select>
         </div>
-        <div class="field ranking-size"><label for="rankingSize">Show</label>
-          <select id="rankingSize"><option value="20">Top 20</option><option value="25">Top 25</option><option value="50">Top 50</option><option value="100">Top 100</option></select>
+        <div class="field ranking-size"><label for="rankingSize">show</label>
+          <select id="rankingSize"><option value="20">top 20</option><option value="25">top 25</option><option value="50">top 50</option><option value="100">top 100</option></select>
         </div>
       </div>
       <div id="universityStarters" class="examples" aria-label="University quick picks"></div>
       <p id="universityStatus" class="hint" role="status">Loading universities…</p>
       <div class="actions">
-        <button id="searchUniversities" class="primary" disabled>Search selected universities</button>
-        <button id="clearUniversities" disabled>Clear selection</button>
+        <button id="searchUniversities" class="primary" disabled>search selected universities</button>
+        <button id="clearUniversities" disabled>clear selection</button>
       </div>
       <p id="rankingAttribution" class="hint"></p>
       <p class="hint">Switching lists keeps your selections.</p>
     </section>
     <section class="starter-path topic-starters" aria-labelledby="topicsTitle">
-      <h3 id="topicsTitle">What do you want to study?</h3>
+      <h3 id="topicsTitle">what do you want to study?</h3>
       <p class="hint">Jump straight to a subject. Narrowed to your universities if you picked any.</p>
       <div class="subject-browser">
         <div id="subjectLetters" class="subject-letters" aria-label="Browse subjects alphabetically"></div>
@@ -854,7 +864,7 @@
     <span id="snapshotNote">Course data: UCAS</span>
     <span>Student figures: Discover Uni</span>
     <span>Nothing about you is stored on our servers; your shortlist stays in this browser.</span>
-    <a id="exportLink" href="/export" hidden>Bulk export &rarr;</a>
+    <a id="exportLink" href="/export" hidden>bulk export &rarr;</a>
   </div>
 </footer>
 
@@ -872,7 +882,7 @@ function renderSubjectStarters(){
   const available = new Set(SUBJECT_DIRECTORY.entries.map(s=>s.label[0].toUpperCase()));
   const nav = $('#subjectLetters');
   nav.innerHTML = letters.map(letter=>{
-    const label = letter === 'popular' ? 'Popular' : letter;
+    const label = letter === 'popular' ? 'popular' : letter;
     const disabled = letter !== 'popular' && !available.has(letter);
     return '<button data-letter="'+letter+'" aria-pressed="'+(letter===subjectLetter)+'"'
       + (disabled?' disabled':'')+'>'+label+'</button>';
@@ -884,7 +894,7 @@ function renderSubjectStarters(){
     '<button data-subject="'+esc(subject.query)+'">'+esc(subject.label)+' ↗</button>').join('');
   const more = $('#subjectMore');
   more.hidden = subjectLetter === 'popular' || all.length <= 20;
-  more.textContent = subjectExpanded ? 'Show fewer' : 'Show all '+subjectLetter+' subjects · '+all.length;
+  more.textContent = subjectExpanded ? 'show fewer' : 'show all '+subjectLetter+' subjects · '+all.length;
   nav.querySelectorAll('button[data-letter]').forEach(button=>{
     button.onclick = ()=>{
       subjectLetter = button.dataset.letter;
@@ -915,23 +925,26 @@ function bindStarters(){
 
 // ---- Screens ---------------------------------------------------------
 // Four places, and every section below the top bar belongs to exactly one:
-// home (hero, form, starter cards), results (summary or the form while
-// editing, filters, results header), list (a shortlist) and searches (saved
-// searches). SCREEN says which is showing.
-let SCREEN = 'home', EDITING = false, EDIT_SNAPSHOT = null;
+// home (hero, the full form, starter cards), results (the same form as one
+// slim live row, then the results header), list (a shortlist) and searches
+// (saved searches). SCREEN says which is showing.
+let SCREEN = 'home';
 // Results to load, in pages of 100: 3 normally, 10 after "Load up to 1,000".
 let DEPTH = 3;
 // The last search that ran, so the Search tab can go back to it.
 let PREV = null;
+// Whether "More filters" is open. It stays as left between searches.
+let FILTERS_OPEN = false;
 
 function setScreen(name){
   SCREEN = name;
   const results = name === 'results', list = name === 'list';
   $('#hero').hidden = name !== 'home';
-  $('#searchForm').hidden = !(name === 'home' || (results && EDITING));
-  $('#cancelEdit').hidden = !(results && EDITING);
-  $('#summary').hidden = !results || EDITING;
-  $('#filterRow').hidden = !results;
+  $('#searchForm').hidden = !(name === 'home' || results);
+  $('#searchForm').classList.toggle('compact', results);
+  $('#q').placeholder = results ? 'any subject' : 'e.g. physics, or leave blank for any subject';
+  $('#filterRow').hidden = !results || !FILTERS_OPEN;
+  document.querySelectorAll('.bar .res-only').forEach(el=>{ el.hidden = !results; });
   $('#listHead').hidden = !list;
   $('.bar').hidden = !(results || list);
   if(!results && !list) $('#note').hidden = true;
@@ -945,7 +958,6 @@ function showHome(){
   // Invalidate pending requests so late results cannot replace the home screen.
   searchVersion++;
   LAST = null;
-  EDITING = false;
   leaveList();
   leaveSearches();
   closePanel();
@@ -964,24 +976,15 @@ function showHome(){
   window.scrollTo({top:0,behavior:'instant'});
 }
 
-// The one-line stand-in for the form once results show.
-function renderSummary(){
-  const q = $('#q').value.trim();
-  $('#sumSubject').textContent = q ? q[0].toUpperCase() + q.slice(1) : 'Any subject';
-  $('#sumAt').textContent = PICKED.length ? 'at' : 'at every university';
-  $('#sumUnis').innerHTML = PICKED.map(p=>
-    '<span class="tag" title="'+esc(p.name)+'">'+esc(uniLabel(p.name))+'</span>').join('');
-}
-
 // Home's way back in: the shortlist and the latest saved searches.
 function renderResume(){
   const box = $('#resume');
   if(!box) return;
   const items = [];
-  if(LIST.length) items.push('<button data-go="list">★ Your shortlist · '+LIST.length+'</button>');
+  if(LIST.length) items.push('<button data-go="list">★ my shortlist · '+LIST.length+'</button>');
   SAVED.slice(-3).reverse().forEach(s=>items.push('<button data-run="'+esc(s.id)+'">'+esc(s.name)+'</button>'));
   box.hidden = !items.length;
-  box.innerHTML = '<span class="lab">Pick up where you left off</span>' + items.join('');
+  box.innerHTML = '<span class="lab">pick up where you left off</span>' + items.join('');
   box.onclick = e=>{
     const b = e.target.closest('button');
     if(!b) return;
@@ -991,9 +994,25 @@ function renderResume(){
 }
 
 // Qualification, mode and region change what is fetched, so they re-run the
-// search; the entry cap only narrows what is already loaded.
+// search; the entry cap only narrows what is already loaded. The three
+// behind "More filters" show as chips beside it while set, and the link
+// counts them, so a closed drawer never hides a filter that is narrowing
+// the results.
+const MORE = ['#qual','#mode','#region'];
+
 function filtersChanged(){
-  $('#clearFilters').hidden = !['#qual','#mode','#region','#maxEntry'].some(s=>$(s).value);
+  const on = MORE.filter(s=>$(s).value);
+  $('#moreFilters').textContent = 'more filters' + (on.length ? ' (' + on.length + ')' : '');
+  $('#clearFilters').hidden = !on.length;
+  const box = $('#advChips');
+  box.innerHTML = on.map(s=>{
+    const el = $(s);
+    return '<span class="pchip"><span class="nm">'+esc(el.options[el.selectedIndex].textContent)+'</span>'
+      + '<button data-sel="'+s+'" title="Remove" aria-label="Remove '+esc(el.options[el.selectedIndex].textContent)+'">×</button></span>';
+  }).join('');
+  box.querySelectorAll('button').forEach(b=>{
+    b.onclick = ()=>{ $(b.dataset.sel).value = ''; filtersChanged(); if(SCREEN === 'results') search(); };
+  });
 }
 
 // Entry cycle is filtered by academicYearId (a plain string). Do NOT filter by
@@ -1028,12 +1047,10 @@ async function search(keepDepth){
   const version = ++searchVersion;
   if(keepDepth !== true) DEPTH = 3;
   LAST = null;
-  EDITING = false;
   leaveList();
   leaveSearches();
   closeMenu();
   setScreen('results');
-  renderSummary();
   const btn = $('#go'); btn.disabled = true;
   $('#csv').disabled = true;
   $('#loadMore').hidden = true;
@@ -1388,7 +1405,7 @@ function render(){
     const uni = uniLink(r);
     const meter = meterSegs(b);
     if(grouped && (i === 0 || isFinal(rows[i-1]) !== isFinal(r))){
-      h += '<tr class="grp"><td colspan="12">'+(isFinal(r) ? 'Your five choices' : 'Also shortlisted')+'</td></tr>';
+      h += '<tr class="grp"><td colspan="12">'+(isFinal(r) ? 'your five choices' : 'also shortlisted')+'</td></tr>';
     }
     h += '<tr data-i="'+i+'">'
       + '<td class="c-star">'+starButton(r)+'</td>'
@@ -1518,7 +1535,7 @@ function fill(r){
   const web = $('#pweb'), u = uniLink(r);
   web.href = u.href; web.title = u.title;
   // Name the destination, so the course page cannot be mistaken for UCAS's.
-  web.innerHTML = esc(u.search ? 'Search ' + (u.host || 'the web')
+  web.innerHTML = esc(u.search ? 'search ' + (u.host || 'the web')
     : u.host + (u.base ? ' main course' : ' course page')) + ' &nearr;';
 
   // Entry requirement first and large — it is the thing being compared.
@@ -1530,7 +1547,7 @@ function fill(r){
     ? '<div class="pbox"><div class="biglab">Entry requirement</div>'
       + '<div class="big none">Not published yet</div>'
       + '<div class="sub">The university has not published one for '+esc(r.year||'this year')+'. '
-      + (r.ucasUrl ? '<a href="'+esc(r.ucasUrl)+'" target="_blank" rel="noopener">Check the UCAS listing &nearr;</a>'
+      + (r.ucasUrl ? '<a href="'+esc(r.ucasUrl)+'" target="_blank" rel="noopener">check the UCAS listing &nearr;</a>'
                    : 'Check the UCAS listing nearer the time.')+'</div></div>'
       + '<div id="h-entry"></div>'
     : '<div class="pbox">'
@@ -1546,7 +1563,7 @@ function fill(r){
     + (r.tariffFrom
         ? '<div class="stale"><b>Not published for '+esc(r.year)+' yet.</b> This is from '
           + esc(r.tariffFrom)+', so it may change. '
-          + (r.ucasUrl ? '<a href="'+esc(r.ucasUrl)+'" target="_blank" rel="noopener">Check the UCAS listing &nearr;</a>'
+          + (r.ucasUrl ? '<a href="'+esc(r.ucasUrl)+'" target="_blank" rel="noopener">check the UCAS listing &nearr;</a>'
                        : 'Check the UCAS listing.')+'</div>'
         : '')
     + '</div>'
@@ -2056,15 +2073,15 @@ function starButton(r){
 function panelList(r){
   const e = listed(r.id), n = finals();
   const star = $('#pstar');
-  star.textContent = e ? '★ On your shortlist' : '☆ Add to shortlist';
+  star.textContent = e ? '★ on my shortlist' : '☆ add to shortlist';
   star.classList.toggle('on', !!e);
   star.setAttribute('aria-pressed', String(!!e));
   const fin = $('#pfinal');
   fin.hidden = !e;
   if(!e) return;
   fin.setAttribute('aria-pressed', String(!!e.final));
-  fin.textContent = e.final ? '✓ One of your five choices'
-    : 'Make it one of your five choices · ' + n + ' of ' + FINAL_MAX;
+  fin.textContent = e.final ? '✓ one of my five choices'
+    : 'make it one of my five · ' + n + ' of ' + FINAL_MAX;
   fin.disabled = !e.final && n >= FINAL_MAX;
   fin.title = fin.disabled ? 'You have picked five already. Unmark one to choose this instead.'
     : 'UCAS lets you apply to up to five courses';
@@ -2127,7 +2144,7 @@ function listTools(){
   adopt.hidden = !MODE || !MODE.shared || !ROWS.length;
   if(!MODE) return;
   $('#shareList').disabled = !LIST.length;
-  $('#listTitle').textContent = MODE.shared ? 'Shared shortlist' : 'Your shortlist';
+  $('#listTitle').textContent = MODE.shared ? 'shared shortlist' : 'my shortlist';
   $('#listSummary').textContent = MODE.shared
     ? 'Someone shared these courses with you. Add them to keep them in your own shortlist.'
     : LIST.length + (LIST.length === 1 ? ' course' : ' courses') + ' · ' + finals() + ' of ' + FINAL_MAX
@@ -2135,8 +2152,8 @@ function listTools(){
   if(MODE.shared){
     const fresh = ROWS.filter(r=>!listed(r.id)).length;
     adopt.disabled = !fresh;
-    adopt.textContent = fresh ? 'Add ' + (fresh === ROWS.length ? 'all ' : '') + fresh + ' to my shortlist'
-      : 'All on your shortlist ✓';
+    adopt.textContent = fresh ? 'add ' + (fresh === ROWS.length ? 'all ' : '') + fresh + ' to my shortlist'
+      : 'all on my shortlist ✓';
   }
   $('#cStat').innerHTML = MODE.shared
     ? '<b>' + ROWS.length + '</b> in this shared shortlist'
@@ -2151,7 +2168,6 @@ async function showList(shared){
   closeMenu();
   if(MODE && MODE.shared && !shared) clearHash();
   leaveSearches();
-  EDITING = false;
   MODE = shared || {shared:false};
   const ids = shared ? shared.ids : LIST.map(e=>e.id);
   ROWS = []; VIEW = []; TOTAL = 0;
@@ -2187,7 +2203,7 @@ async function showList(shared){
       note.hidden = !gone.length;
       note.innerHTML = '<b>No longer listed by UCAS:</b> ' + gone.map(e=>
         esc(e.title) + ' · ' + esc(e.provider)
-        + ' <button class="linkbtn" data-drop="' + esc(e.id) + '">Remove</button>').join('; ');
+        + ' <button class="linkbtn" data-drop="' + esc(e.id) + '">remove</button>').join('; ');
       note.querySelectorAll('[data-drop]').forEach(b=>{
         b.onclick = ()=>{
           LIST = LIST.filter(e=>e.id!==b.dataset.drop);
@@ -2209,7 +2225,7 @@ async function copyLink(url, btn){
   const was = btn.textContent;
   try{
     await navigator.clipboard.writeText(url);
-    btn.textContent = 'Link copied ✓';
+    btn.textContent = 'link copied ✓';
     setTimeout(()=>{ btn.textContent = was; }, 2000);
   }catch(e){
     // No clipboard access (an insecure origin, or permission refused).
@@ -2291,8 +2307,8 @@ function saveButton(){
   btn.hidden = !LAST || !!MODE || SEARCHES_OPEN;
   $('#shareSearch').hidden = btn.hidden;
   const s = findSaved(LAST);
-  btn.textContent = s ? '★ Saved search' : '☆ Save search';
-  btn.className = s ? 'saved' : 'primary';
+  btn.textContent = s ? '★ saved search' : '☆ save search';
+  btn.className = s ? 'is-saved' : 'primary';
   btn.setAttribute('aria-pressed', String(!!s));
 }
 
@@ -2324,7 +2340,6 @@ function showSearches(){
   closeMenu();
   if(MODE){ if(MODE.shared) clearHash(); MODE = null; listTools(); }
   SEARCHES_OPEN = true;
-  EDITING = false;
   ROWS = []; VIEW = []; LAST = null;
   saveButton();
   setScreen('searches');
@@ -2333,7 +2348,7 @@ function showSearches(){
 }
 
 function renderSearches(){
-  let h = '<section class="saved" aria-labelledby="savedTitle"><h2 id="savedTitle">Saved searches</h2>';
+  let h = '<section class="saved" aria-labelledby="savedTitle"><h2 id="savedTitle">saved searches</h2>';
   if(!SAVED.length){
     h += '<p>Nothing saved yet. Pick your universities, search for a subject if you like, then use '
        + '<b>☆ Save search</b> above the results to keep it here.</p></section>';
@@ -2353,9 +2368,9 @@ function renderSearches(){
       + (chips.length ? chips.join('') : (s.q ? '' : '<span class="meta">Every university, every subject</span>')) + '</div>'
       + '<div class="meta">'+(s.total != null ? s.total.toLocaleString()+' course'+(s.total===1?'':'s')+' when saved · ' : '')
       + 'saved '+esc(s.at||'')+'</div></div>'
-      + '<div class="acts"><button class="primary" data-act="run">Run search</button>'
-      + '<button data-act="rename">Rename</button><button data-act="share">Copy link</button>'
-      + '<button class="del" data-act="delete">Delete</button></div></article>';
+      + '<div class="acts"><button class="primary" data-act="run">run search</button>'
+      + '<button data-act="rename">rename</button><button data-act="share">copy link</button>'
+      + '<button class="del" data-act="delete">delete</button></div></article>';
   });
   $('#out').innerHTML = h + '</section>';
   $('#out').querySelectorAll('.scard').forEach(card=>{
@@ -2563,7 +2578,7 @@ function renderChips(){
     b.onclick = ()=>{ PICKED.splice(+b.dataset.i,1); renderChips(); save(); };
   });
   $('#fprovClear').hidden = PICKED.length===0;
-  $('#fprov').placeholder = PICKED.length ? 'Add another…' : 'Type a university, e.g. Durham';
+  $('#fprov').placeholder = PICKED.length ? 'add another…' : 'type a university, e.g. Durham';
   renderUniversityStarters();
 }
 
@@ -2677,19 +2692,10 @@ $('#searchTab').onclick = ()=>{
   if(SCREEN === 'home' || SCREEN === 'results') return;
   if(PREV) runSearch(PREV); else showHome();
 };
-// Editing reopens the form in place. Cancel puts back what was there, so
-// half-made changes to the universities are not kept by accident.
-$('#editSearch').onclick = ()=>{
-  EDITING = true;
-  EDIT_SNAPSHOT = {q:$('#q').value, picked:PICKED.slice()};
-  setScreen('results');
-  $('#q').focus();
-};
-$('#cancelEdit').onclick = ()=>{
-  if(EDIT_SNAPSHOT){ $('#q').value = EDIT_SNAPSHOT.q; PICKED = EDIT_SNAPSHOT.picked; save(); renderChips(); }
-  EDITING = false;
-  closeMenu();
-  setScreen('results');
+$('#moreFilters').onclick = ()=>{
+  FILTERS_OPEN = !FILTERS_OPEN;
+  $('#moreFilters').setAttribute('aria-expanded', String(FILTERS_OPEN));
+  $('#filterRow').hidden = !FILTERS_OPEN;
 };
 $('#loadMore').onclick = ()=>{ DEPTH = 10; search(true); };
 $('#sort').onchange = ()=>{
@@ -2702,12 +2708,11 @@ $('#sort').onchange = ()=>{
   filtersChanged();
   if(SCREEN === 'results') search();
 }));
-$('#maxEntry').addEventListener('change', ()=>{ filtersChanged(); if(ROWS.length) render(); });
+$('#maxEntry').addEventListener('change', ()=>{ if(ROWS.length) render(); });
 $('#clearFilters').onclick = ()=>{
-  const refetch = ['#qual','#mode','#region'].some(s=>$(s).value);
-  ['#qual','#mode','#region','#maxEntry'].forEach(s=>{ $(s).value = ''; });
+  MORE.forEach(s=>{ $(s).value = ''; });
   filtersChanged();
-  if(refetch) search(); else if(ROWS.length) render();
+  search();
 };
 $('#q').addEventListener('keydown', e=>{ if(e.key==='Enter') search(); });
 $('#csv').onclick = csv;
