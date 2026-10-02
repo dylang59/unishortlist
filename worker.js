@@ -214,6 +214,47 @@ async function handleFacets(env, p) {
   };
 }
 
+// Shortlisted courses by courseId. The id is stable across cycles, so a
+// shortlist stores it without a year and each course resolves to the selected
+// cycle where it runs, else its latest. rowid_key is courseId + '-' + year,
+// so this is primary-key lookups rather than a scan: there is no index on
+// course_id, and a scan reads all ~30k rows to find a handful.
+const SHORTLIST_MAX = 200;
+
+async function handleCourses(env, p) {
+  const ids = [...new Set((p.ids || []).map(String))]
+    .filter(id => /^[0-9a-f-]{36}$/.test(id)).slice(0, SHORTLIST_MAX);
+  if (!ids.length) return { courses: [] };
+  const level = p.studyLevel || 'Undergraduate';
+
+  let cycles = await env.DB.prepare('SELECT DISTINCT year FROM provider_counts WHERE level = ?')
+    .bind(level).all().catch(() => null);
+  if (!cycles || !cycles.results || !cycles.results.length) {
+    cycles = await env.DB.prepare('SELECT DISTINCT year FROM courses WHERE level = ?')
+      .bind(level).all();
+  }
+  const years = (cycles.results || []).map(r => String(r.year));
+
+  // D1 caps a statement at 100 bound parameters.
+  const keys = ids.flatMap(id => years.map(y => id + '-' + y));
+  const found = [];
+  for (let i = 0; i < keys.length; i += 90) {
+    const part = keys.slice(i, i + 90);
+    const rows = await env.DB.prepare('SELECT * FROM courses WHERE rowid_key IN (' +
+      part.map(() => '?').join(',') + ') AND level = ?').bind(...part, level).all();
+    found.push(...(rows.results || []));
+  }
+
+  const want = p.academicYearId ? String(p.academicYearId) : null;
+  const best = new Map();
+  for (const r of found) {
+    const had = best.get(r.course_id);
+    if (!had || (r.year === want) > (had.year === want) ||
+        ((r.year === want) === (had.year === want) && r.year > had.year)) best.set(r.course_id, r);
+  }
+  return { courses: ids.filter(id => best.has(id)).map(id => toCourse(best.get(id))) };
+}
+
 async function handleMeta(env) {
   const rows = await env.DB.prepare('SELECT key, value FROM meta').all()
     .catch(() => ({ results: [] }));
@@ -251,6 +292,7 @@ export default {
         if (url.pathname === '/api/providers') return json(await handleProviders(env, p));
         if (url.pathname === '/api/facets') return json(await handleFacets(env, p));
         if (url.pathname === '/api/meta') return json(await handleMeta(env));
+        if (url.pathname === '/api/courses') return json(await handleCourses(env, p));
         // One stored JSON record per Discover Uni course, passed through as
         // text. A primary-key read: one row per panel opened.
         if (url.pathname === '/api/hesa') {

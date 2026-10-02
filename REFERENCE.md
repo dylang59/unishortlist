@@ -33,7 +33,7 @@ path that calls Algolia.
 
 The deployed snapshot holds **29,774** rows for 2027 undergraduate. The live
 index reports **29,781**. A handful of rows drift apart each day — universities
-edit listings continuously. The header chip shows the snapshot date for exactly this reason;
+edit listings continuously. The footer gives the snapshot date for exactly this reason;
 treat the deployed figures as "about right a month ago", not as current.
 
 ---
@@ -167,6 +167,7 @@ Both backends. All POST, all JSON body, all returning JSON.
 | `/api/facets` | raw facet counts | yes |
 | `/api/meta` | snapshot date and row counts | yes |
 | `/api/hesa` | `{key}` → one course's Discover Uni record, or `null` | yes |
+| `/api/courses` | `{ids, academicYearId}` → shortlisted courses by `courseId` | yes |
 | `/api/tariffs` | borrowed entry requirements | returns empty — resolved at import |
 | `/api/stats` | cache hit/miss, upstream query count | no |
 | `/api/export/plan` | cost estimate before exporting | **501** |
@@ -187,6 +188,62 @@ courses. Both backends avoid this:
 - `server.js` — fetches each provider separately, then round-robins.
 
 Five universities at limit 600 gives 120 each, not 220/161/19/0/0.
+
+### Course shortlist
+
+Starred courses live in the visitor's browser only (`localStorage`); nothing
+about them is stored server-side. Keys:
+
+| Key | Holds |
+|---|---|
+| `unishortlist.courses.v1` | `[{id, title, provider, award, code, final}]`, oldest first |
+| `unishortlist.universities.v1` | picked universities `{year, names}`; replaces `ucasbuster.picked.v1`, which the page moves across once and deletes |
+| `unishortlist.searches.v1` | saved searches `[{id, name, q, unis, qual, mode, region, total, at}]` |
+
+**Courses are keyed by `courseId` alone, not `courseId` + year.** UCAS keeps
+the id stable across cycles: comparing 2026 with 2027 for six universities,
+every continuing course kept its id, and courses that looked renumbered were new
+courses sharing a title with one whose id still exists. So a list built in one
+cycle opens in the next. The title and university are stored alongside the id
+so a course that leaves the listings can still be named in the "No longer
+listed" note, rather than vanishing.
+
+**`/api/courses`** returns each id's row for the requested cycle, else its
+latest, in the order asked; unknown and malformed ids are dropped silently.
+The Worker builds `rowid_key` (`courseId-year`) for every cycle in
+`provider_counts` and reads by primary key, chunked under D1's 100-parameter
+limit, because `course_id` has no index and a scan reads all ~30k rows.
+`server.js` cannot filter by `courseId` (not a facet on the index: the filter
+returns zero hits, not an error), so it fetches the same `courseId-year`
+objectIDs from Algolia's multi-get endpoint in one request.
+
+**Share links** carry the list in the URL fragment, which browsers never send
+to the server: `#s=` then one 22-character token per course, joined by `.`.
+Each token is the GUID's 16 bytes in URL-safe base64; a leading `~` marks one
+of the five final choices. Ten courses make a link of about 260 characters. A
+shared list opens read-only, beside the visitor's own; "Add to my shortlist"
+merges it, taking its final choices only while the visitor has fewer than five.
+
+### Saved searches
+
+A saved search is the search term, the picked universities and the three
+advanced filters. A search with no term is how a list of universities is kept;
+there is no separate university list. Left out on purpose: the entry year (a
+saved search follows the selected cycle, as shortlisted courses do) and the
+subject/town/tariff boxes, which only filter rows already in the browser. Two
+searches are the same if they differ only in case or university order, so
+saving one twice finds the existing entry.
+
+**Saved searches cost no D1 reads.** The count on each card is the `total` the
+search returned when it was saved. A live count would be one query per card on
+every visit, and any search with a term is counted by a full scan of `courses`
+(`provider_counts` cannot answer it).
+
+A search link carries the search itself: `#q=physics&u=<name>&u=<name>`, plus
+`ql`, `md` and `rg` for qualification, mode and region. Opening one applies it
+to the controls, runs it and clears the fragment. Its universities replace the
+visitor's picked set, exactly as picking them by hand would. A university not
+in the selected cycle is dropped and named in the note above the results.
 
 ---
 

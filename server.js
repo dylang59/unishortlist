@@ -264,6 +264,37 @@ const routes = {
     return h ? h.get(String(payload.key)) : null;
   },
 
+  // Shortlisted courses by courseId, preferring the selected cycle. courseId is
+  // not a facet on this index, so filtering by it silently returns nothing;
+  // records are fetched by objectID (courseId + '-' + year) instead, one
+  // request for every id in every cycle the page offers.
+  '/api/courses': async (payload) => {
+    const ids = [...new Set((payload.ids || []).map(String))]
+      .filter(id => /^[0-9a-f-]{36}$/.test(id)).slice(0, 200);
+    if (!ids.length) return { courses: [] };
+    const years = ['2027', '2026', '2025'];
+    const r = await fetch(`https://${ALGOLIA_APP}-dsn.algolia.net/1/indexes/*/objects`, {
+      method: 'POST',
+      headers: { 'X-Algolia-API-Key': ALGOLIA_KEY, 'X-Algolia-Application-Id': ALGOLIA_APP },
+      body: JSON.stringify({ requests: ids.flatMap(id => years.map(y =>
+        ({ indexName: INDEX, objectID: id + '-' + y }))) }),
+    });
+    const data = await r.json();
+    if (data.message) throw new Error('Algolia: ' + data.message);
+    misses++;
+    const want = payload.academicYearId ? String(payload.academicYearId) : null;
+    const best = new Map();
+    for (const hit of data.results || []) {
+      if (!hit || (payload.studyLevel && hit.studyLevel !== payload.studyLevel)) continue;
+      const row = flatten(hit), had = best.get(row.id);
+      if (!had || (String(row.year) === want) > (String(had.year) === want) ||
+          ((String(row.year) === want) === (String(had.year) === want) && row.year > had.year)) {
+        best.set(row.id, row);
+      }
+    }
+    return { courses: ids.filter(id => best.has(id)).map(id => best.get(id)) };
+  },
+
   // One page of results plus facet counts.
   '/api/search': async (payload) => {
     const page = Math.max(0, (payload.pageNumber || 1) - 1);
