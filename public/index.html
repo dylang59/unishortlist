@@ -91,7 +91,6 @@
     padding-top:16px;margin-top:16px;border-top:1px solid var(--line)}
   [hidden]{display:none !important}
   #provChips:empty{display:none}
-  #provChips{display:flex;margin-top:12px}
   .welcome{max-width:1280px;margin:clamp(32px,5vh,56px) auto;padding:0 24px;text-align:center}
   .welcome .eyebrow{color:var(--action);font-size:12px;letter-spacing:1.5px;text-transform:uppercase;font-weight:600}
   .welcome h2{font-size:clamp(28px,4vw,40px);font-weight:650;letter-spacing:-1.2px;line-height:1.15;margin:14px 0}
@@ -130,6 +129,22 @@
   .starter-path .examples button[aria-pressed="true"]{background:var(--action-tint);border-color:var(--action);color:var(--action)}
   .university-starters .actions{display:flex;justify-content:flex-start;align-items:center;gap:12px;flex-wrap:wrap;margin:16px 0}
   .university-starters .actions button{padding:10px 18px}
+  .ranking-controls{display:flex;flex-wrap:wrap;align-items:end;gap:12px;margin-top:20px}
+  .ranking-controls .field{flex:1;min-width:160px}
+  .ranking-controls .ranking-size{flex:0 0 110px;min-width:110px}
+  .ranking-controls select{height:38px;font-size:13px}
+  .rank-number{color:var(--dim);font-size:11px;margin-right:6px;font-variant-numeric:tabular-nums}
+  .subject-browser{margin-top:20px}
+  .subject-letters{display:flex;flex-wrap:wrap;gap:4px;margin-bottom:16px}
+  .subject-letters button{min-width:30px;height:30px;padding:0 7px;border-radius:0;
+    color:var(--dim);background:transparent;font-size:12px}
+  .subject-letters button:first-child{padding:0 11px}
+  .subject-letters button:hover:not(:disabled){color:var(--action);border-color:#657829}
+  .subject-letters button[aria-pressed="true"]{color:var(--action);border-color:var(--action);
+    background:var(--action-tint)}
+  .subject-letters button:disabled{opacity:.25}
+  .subject-browser .examples{margin:0}
+  .subject-more{margin-top:14px;color:var(--action);background:transparent;border-color:#657829}
   button:disabled{opacity:.45;cursor:default}
   @media(max-width:1050px){
     .search-row{grid-template-columns:minmax(0,1fr) 140px minmax(0,1fr)}
@@ -560,49 +575,31 @@
     <section class="starter-path university-starters" aria-labelledby="universitiesTitle">
       <h3 id="universitiesTitle">Where do you want to study?</h3>
       <p class="hint">Pick up to five, then compare their courses side by side. Everything you search next stays within them.</p>
+      <div class="ranking-controls">
+        <div class="field"><label for="rankingSource">University ranking</label>
+          <select id="rankingSource"><option value="qs">QS World · UK</option><option value="times">Times &amp; Sunday Times</option><option value="guardian">Guardian</option></select>
+        </div>
+        <div class="field ranking-size"><label for="rankingSize">Show</label>
+          <select id="rankingSize"><option value="20">Top 20</option><option value="25">Top 25</option><option value="50">Top 50</option><option value="100">Top 100</option></select>
+        </div>
+      </div>
       <div id="universityStarters" class="examples" aria-label="University quick picks"></div>
       <p id="universityStatus" class="hint" role="status">Loading universities…</p>
       <div class="actions">
         <button id="searchUniversities" class="primary" disabled>Search selected universities</button>
         <button id="clearUniversities" disabled>Clear selection</button>
       </div>
-      <p class="hint">UK top 20 · <a href="https://issc.co.uk/uk-university-rankings/qs/default.asp?year=2027qs" target="_blank" rel="noopener">QS World University Rankings 2027 ↗</a><br>Looking elsewhere? Use the university picker above.</p>
+      <p id="rankingAttribution" class="hint"></p>
+      <p class="hint">Switching lists keeps your selections. Use the university picker above for other universities.</p>
     </section>
     <section class="starter-path topic-starters" aria-labelledby="topicsTitle">
       <h3 id="topicsTitle">What do you want to study?</h3>
       <p class="hint">Jump straight to a subject. Narrowed to your universities if you picked any above.</p>
-    <div class="examples" aria-label="Try a subject">
-      <button data-subject="Accounting">Accounting ↗</button>
-      <button data-subject="Architecture">Architecture ↗</button>
-      <button data-subject="Art">Art ↗</button>
-      <button data-subject="Biology">Biology ↗</button>
-      <button data-subject="Biomedical Science">Biomedical Science ↗</button>
-      <button data-subject="Business">Business ↗</button>
-      <button data-subject="Chemistry">Chemistry ↗</button>
-      <button data-subject="Civil Engineering">Civil Engineering ↗</button>
-      <button data-subject="Computer Science">Computer Science ↗</button>
-      <button data-subject="Criminology">Criminology ↗</button>
-      <button data-subject="Dentistry">Dentistry ↗</button>
-      <button data-subject="Economics">Economics ↗</button>
-      <button data-subject="Education">Education ↗</button>
-      <button data-subject="English Literature">English Literature ↗</button>
-      <button data-subject="Geography">Geography ↗</button>
-      <button data-subject="History">History ↗</button>
-      <button data-subject="Law">Law ↗</button>
-      <button data-subject="Marketing">Marketing ↗</button>
-      <button data-subject="Mathematics">Mathematics ↗</button>
-      <button data-subject="Mechanical Engineering">Mechanical Engineering ↗</button>
-      <button data-subject="Medicine">Medicine ↗</button>
-      <button data-subject="Music">Music ↗</button>
-      <button data-subject="Nursing">Nursing ↗</button>
-      <button data-subject="Pharmacy">Pharmacy ↗</button>
-      <button data-subject="Philosophy">Philosophy ↗</button>
-      <button data-subject="Physics">Physics ↗</button>
-      <button data-subject="Politics">Politics ↗</button>
-      <button data-subject="Psychology">Psychology ↗</button>
-      <button data-subject="Sociology">Sociology ↗</button>
-      <button data-subject="Sport">Sport ↗</button>
-    </div>
+      <div class="subject-browser">
+        <div id="subjectLetters" class="subject-letters" aria-label="Browse subjects alphabetically"></div>
+        <div id="subjectStarters" class="examples" aria-live="polite"></div>
+        <button id="subjectMore" class="subject-more" hidden></button>
+      </div>
     <p class="hint">Looking for something else? Enter a course keyword in the search bar.</p>
     </section>
     </div>
@@ -626,18 +623,59 @@
   <div class="pb" id="pbody"></div>
 </aside>
 
+<script src="/rankings.js?v=2027-top100"></script>
+<script src="/subjects.js?v=2027-az"></script>
 <script>
 const $ = s => document.querySelector(s);
 let ROWS = [], TOTAL = null, SORT = { key:'provider', dir:1 };
 const HOME_HTML = $('#out').innerHTML;
 let searchVersion = 0;
+let subjectLetter = 'popular', subjectExpanded = false;
 
-function bindStarters(){
-  $('#searchUniversities').onclick = search;
-  $('#clearUniversities').onclick = clearProviders;
-  document.querySelectorAll('[data-subject]').forEach(button=>{
+function renderSubjectStarters(){
+  const letters = ['popular'].concat('ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split(''));
+  const available = new Set(SUBJECT_DIRECTORY.entries.map(s=>s.label[0].toUpperCase()));
+  const nav = $('#subjectLetters');
+  nav.innerHTML = letters.map(letter=>{
+    const label = letter === 'popular' ? 'Popular' : letter;
+    const disabled = letter !== 'popular' && !available.has(letter);
+    return '<button data-letter="'+letter+'" aria-pressed="'+(letter===subjectLetter)+'"'
+      + (disabled?' disabled':'')+'>'+label+'</button>';
+  }).join('');
+  const all = subjectLetter === 'popular' ? SUBJECT_DIRECTORY.popular :
+    SUBJECT_DIRECTORY.entries.filter(s=>s.label[0].toUpperCase()===subjectLetter);
+  const shown = subjectLetter === 'popular' || subjectExpanded ? all : all.slice(0,20);
+  $('#subjectStarters').innerHTML = shown.map(subject=>
+    '<button data-subject="'+esc(subject.query)+'">'+esc(subject.label)+' ↗</button>').join('');
+  const more = $('#subjectMore');
+  more.hidden = subjectLetter === 'popular' || all.length <= 20;
+  more.textContent = subjectExpanded ? 'Show fewer' : 'Show all '+subjectLetter+' subjects · '+all.length;
+  nav.querySelectorAll('button[data-letter]').forEach(button=>{
+    button.onclick = ()=>{
+      subjectLetter = button.dataset.letter;
+      subjectExpanded = false;
+      renderSubjectStarters();
+    };
+  });
+  $('#subjectStarters').querySelectorAll('[data-subject]').forEach(button=>{
     button.onclick = ()=>{ $('#q').value = button.dataset.subject; search(); };
   });
+  more.onclick = ()=>{ subjectExpanded = !subjectExpanded; renderSubjectStarters(); };
+}
+
+function bindStarters(){
+  $('#rankingSource').onchange = ()=>{
+    starterRanking = $('#rankingSource').value;
+    starterLimit = starterRanking === 'qs' ? 20 : 25;
+    renderUniversityStarters();
+  };
+  $('#rankingSize').onchange = ()=>{
+    starterLimit = Number($('#rankingSize').value);
+    renderUniversityStarters();
+  };
+  $('#searchUniversities').onclick = search;
+  $('#clearUniversities').onclick = clearProviders;
+  renderSubjectStarters();
 }
 
 function showHome(){
@@ -652,6 +690,7 @@ function showHome(){
   $('#csv').disabled = true;
   $('#go').disabled = false;
   $('#prog').style.width = '0';
+  subjectLetter = 'popular'; subjectExpanded = false;
   ['#q','#fprov','#fsub','#ftown','#ftar'].forEach(id=>$(id).value = '');
   bindStarters();
   renderChips();
@@ -1176,30 +1215,50 @@ const STARTER_UNIVERSITIES = [
   ['Bath', 'University of Bath'],
 ];
 let providersReady = false;
+let starterRanking = 'qs', starterLimit = 20;
+RANKING_LISTS.qs = {
+  title:'QS World University Rankings · UK top 20',year:2027,
+  source:'https://issc.co.uk/uk-university-rankings/qs/default.asp?year=2027qs',
+  entries:STARTER_UNIVERSITIES.map(([label,name])=>({label,name}))
+};
 
 function renderUniversityStarters(){
   const box = $('#universityStarters');
   if(!box) return;
-  if(!box.children.length){
-    box.innerHTML = STARTER_UNIVERSITIES.map(([label,name],i)=>
+  const ranking = RANKING_LISTS[starterRanking];
+  const entries = ranking.entries.filter(entry=>!entry.rank || entry.rank<=starterLimit);
+  $('#rankingSource').value = starterRanking;
+  $('#rankingSize').value = String(starterLimit);
+  [...$('#rankingSize').options].forEach(option=>{
+    option.hidden = starterRanking === 'qs' ? option.value !== '20' : option.value === '20';
+  });
+  $('#rankingSize').disabled = starterRanking === 'qs';
+  const listKey = starterRanking + ':' + starterLimit;
+  if(box.dataset.list !== listKey){
+    box.dataset.list = listKey;
+    box.innerHTML = entries.map(({label,name},i)=>
       '<button data-university="'+i+'" aria-pressed="false" title="'+esc(name)+'">'+esc(label)+'</button>').join('');
     box.onclick = e=>{
       const button = e.target.closest('button[data-university]');
       if(!button || button.disabled) return;
-      choose(PROVIDERS.find(p=>p.name===STARTER_UNIVERSITIES[+button.dataset.university][1]));
+      choose(PROVIDERS.find(p=>p.name===entries[+button.dataset.university].name));
     };
   }
   box.querySelectorAll('button').forEach((button,i)=>{
-    const [label,name] = STARTER_UNIVERSITIES[i];
+    const {label,name,rank,tied} = entries[i];
     const selected = PICKED.some(p=>p.name===name);
     const available = PROVIDERS.some(p=>p.name===name);
     button.setAttribute('aria-pressed',String(selected));
-    button.textContent = (selected ? '✓ ' : '') + label;
+    button.innerHTML = (selected ? '✓ ' : '') + (rank ? '<span class="rank-number">'+(tied?'=':'')+rank+'</span>' : '') + esc(label);
     button.disabled = !providersReady || !available || (!selected && PICKED.length>=5);
     button.title = name + (providersReady && !available ? ' — unavailable for this entry year' : '');
   });
   $('#universityStatus').textContent = !providersReady ? 'Loading universities…' :
-    PICKED.length + ' of 5 selected' + (PICKED.length>=5 ? ' · Remove one to choose another.' : '');
+    PICKED.length + ' of 5 selected' + (PICKED.length>=5 ? ' · Remove one to choose another.' : '')
+    + (PICKED.some(p=>!entries.some(e=>e.name===p.name)) ? ' · Some selections are outside this list; manage them above.' : '');
+  $('#rankingAttribution').innerHTML = '<a href="'+esc(ranking.source)+'" target="_blank" rel="noopener">'+esc(ranking.title)+' '+ranking.year+' ↗</a>'
+    + (starterRanking==='qs' ? '' : ' · UK top '+starterLimit+' (including ties).')
+    + (ranking.publisher ? ' <a href="'+esc(ranking.publisher)+'" target="_blank" rel="noopener">Publisher ↗</a>' : '');
   $('#searchUniversities').disabled = !providersReady || !PICKED.length;
   $('#clearUniversities').disabled = !PICKED.length;
 }
