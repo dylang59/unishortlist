@@ -234,6 +234,52 @@ where paging gives 88%).
 
 ---
 
+## Course page links
+
+UCAS publishes no link to the course on the university's own site. The search
+index carries only the provider homepage (`provider.url`), the legacy index adds
+nothing better, and ucas.com course pages sit behind a bot challenge.
+
+The **Discover Uni** dataset (OfS/HESA open data) does: every course a provider
+submits has a `CRSEURL`, written by the provider. `courselinks.js` joins it to
+the UCAS rows at import time and stores the result in `course_url`.
+
+**Getting the data.** HESA's site blocks scripted downloads, so fetch the zip by
+hand from https://www.hesa.ac.uk/support/tools-and-downloads/unistats and unzip
+it to `data/hesa/DiscoverUni_latest` (git-ignored, ~450 MB, of which only
+`KISCOURSE.csv` and `INSTITUTION.csv` are read). It is updated weekly; once a
+cycle is enough.
+
+**There is no shared course key.** Discover Uni's `UCASCOURSEID` is a four-digit
+internal number, not the application code (`N321`) UCAS shows. So the join is:
+
+1. **Provider** by UKPRN (`provider.ukprn` in the UCAS record), falling back to
+   website domain. The domain map includes course-page hosts as well as
+   `PROVURL`, which lags rebrands (`soton.ac.uk`, `anglia.ac.uk`).
+2. **Exact title**, normalised (case, punctuation, filler words). → `course_link='exact'`
+3. **Base title**, with variant suffixes stripped: "with a Year in Industry",
+   "with Foundation Year", "(4 years)" and the like. Discover Uni usually lists
+   only the base course, and its page covers the variants. → `course_link='base'`
+
+Ties go to the course whose `KISCOURSEID` or URL contains the application code
+(LSE embeds it in the id, Lancaster in the URL), then to the matching mode.
+
+**Coverage, 2027 undergraduate (2026-10-02):** 74.6% of rows linked (19,848
+exact, 2,365 base). Most of the selective universities sit at 85-99%. A sample of
+80 links: 69 loaded, 10 returned 403 to a script (bot protection on UCL, MMU and
+others; not checked in a browser), 1 was a real 404.
+
+**Known weak spots.** St Andrews and Glasgow submit one page per subject, so
+joint degrees link to a single-subject page. Discover Uni runs a cycle behind
+(the 2025 dataset describes 2026-27 entry), so courses new in 2027 are missing.
+
+**Unmatched rows** get a Google search scoped to the provider's domain instead,
+shown as a dashed **FIND** button rather than **UNI**.
+
+The local server loads the same dataset at startup and links live results too.
+
+---
+
 ## Entry difficulty
 
 The **Entry** column ranks how hard a course is to get into. It exists because
@@ -260,17 +306,22 @@ Sanity check across the snapshot: Cambridge lands entirely in High and Highest,
 Oxford almost entirely High, while Teesside and Nottingham Trent sit in Open
 and Moderate.
 
-### Two rules that are not obvious
+### Rules that are not obvious
 
-**Wide point ranges use the midpoint, not the minimum.** A course quoted
-`93 - 198 points` is not an easy one — the floor is a contextual-offer or
-access-route minimum while the typical ask is far above it. Ranking on the
-minimum put competitive London courses below foundation years. 1,701 courses
-quote a spread of 40+ points, so beyond that threshold the midpoint is used.
-Within it, the minimum is the real ask.
+**Ranges rank on their top figure.** Both `120 - 136 points` and
+`AAB - ABB` sort, band and filter on the higher end (136, AAB). The lower
+figure is usually a contextual-offer or access-route minimum that most
+applicants do not qualify for, so the top is what a student needs to be sure
+of a place. An earlier version used the minimum, or the midpoint for spreads of
+40+ points, which made courses look easier than they are.
 
-**Grade ranges take the lower bound.** `AAB - ABB` means the typical offer is
-AAB and ABB is still acceptable, so ABB is what gets you in.
+**Converted grades show the whole range.** A points range converts each end
+to its nearest three-A-level equivalent and shows them highest first, the way
+universities write grades: `120 - 136` displays as `~AAB–BBB`. When both ends
+convert to the same grades, only one is shown.
+
+**Conversions cap at A\*A\*A\* (168).** Higher tariffs assume a fourth A-level,
+an EPQ or other qualifications, so they show as A\*A\*A\* with a tooltip note.
 
 Values that are not grades (`See entry requirements`, 250 rows) score `null`
 and show an empty band rather than a misleading one.
@@ -483,7 +534,22 @@ one-off migration instead of a full re-import:
 npx wrangler d1 execute ucasbuster --remote --file=migrate-indexes.sql
 npx wrangler d1 execute ucasbuster --remote --file=migrate-provider-counts.sql
 npx wrangler d1 execute ucasbuster --remote --file=migrate-sort-indexes.sql
+npx wrangler d1 execute ucasbuster --remote --file=migrate-course-links.sql
 ```
+
+Columns are the exception: a snapshot has no `CREATE TABLE`, so it cannot add
+them. `migrate-course-links.sql` must run before the first snapshot that carries
+`ukprn`/`course_url`/`course_link`, or every INSERT fails. To add links to the
+data already loaded, without re-querying Algolia:
+
+```
+node courselinks.js --snapshot snapshot-2027.sql --out links-2027.sql
+npx wrangler d1 execute ucasbuster --remote --file=links-2027.sql
+```
+
+That matches on website domain only (old snapshots carry no UKPRN), so it
+misses a few providers the next full snapshot will pick up, Lancaster and the
+Open University among them.
 
 The .sql file is an intermediate artifact, gitignored and not in the repo
 (~21 MB, 1,190 INSERT statements). Keeping it means a failed load can be

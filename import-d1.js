@@ -6,10 +6,12 @@
 //
 // Usage:
 //   node import-d1.js --year 2027 --level Undergraduate --out snapshot.sql
+//     [--hesa data/hesa/DiscoverUni_latest]   course page links; see courselinks.js
 //   npx wrangler d1 execute ucasbuster --remote --file=snapshot.sql
 const fs = require('fs');
 const path = require('path');
 const exporter = require('./export');
+const courselinks = require('./courselinks');
 
 const APPID = process.env.ALGOLIA_APP || 'Y3QRV216KL';
 const KEY = process.env.ALGOLIA_KEY || 'c0f72e5c62250ac258c2cf4a3896c19d';
@@ -103,7 +105,18 @@ async function legacyGrades(level, providers) {
 const q = v => v == null || v === '' ? 'NULL' : "'" + String(v).replace(/'/g, "''") + "'";
 const num = v => v == null || v === '' || Number.isNaN(Number(v)) ? 'NULL' : Number(v);
 
-function toRow(h, tariffs, grades) {
+// The university's own page for this course, from Discover Uni.
+function linkFor(h, links) {
+  if (!links) return null;
+  const o = (h.courseOptions && h.courseOptions[0]) || {};
+  const p = h.provider || {};
+  return links.match({
+    ukprn: p.ukprn, providerUrl: p.url, title: h.courseTitle,
+    studyMode: (o.studyMode || {}).mappedCaption, appCode: o.applicationCode,
+  });
+}
+
+function toRow(h, tariffs, grades, links) {
   const o = (h.courseOptions && h.courseOptions[0]) || {};
   const p = h.provider || {};
   const loc = o.location || {};
@@ -123,6 +136,8 @@ function toRow(h, tariffs, grades) {
       if (g) { tText = g; tFrom = 'recent years'; isGrades = 1; }
     }
   }
+
+  const link = linkFor(h, links);
 
   const slug = slugify(h.courseTitle);
   return [
@@ -147,13 +162,15 @@ function toRow(h, tariffs, grades) {
     q(p.url),
     q('https://www.ucas.com/explore/courses/' + h.courseId + (slug ? '/' + slug : '') +
       '?studyYear=' + (h.academicYearId || '')),
+    q(p.ukprn),
+    q(link && link.url), q(link && link.how),
   ].join(',');
 }
 
 const COLS = '(rowid_key,course_id,year,level,title,slug,provider,provider_sort,town,region,' +
              'country,postcode,lat,lng,award,award_full,award_level,study_mode,duration,' +
              'start_date,entry_points,app_code,tariff_min,tariff_max,tariff_text,tariff_from,' +
-             'tariff_grades,subjects,provider_url,ucas_url)';
+             'tariff_grades,subjects,provider_url,ucas_url,ukprn,course_url,course_link)';
 
 async function main() {
   const args = process.argv.slice(2);
@@ -164,6 +181,11 @@ async function main() {
   const year = get('--year', '2027');
   const level = get('--level', 'Undergraduate');
   const out = get('--out', 'snapshot-' + year + '.sql');
+
+  // Load first, so a missing dataset is reported before the long pull.
+  const links = courselinks.load(get('--hesa'));
+  if (links) console.log('Discover Uni: ' + links.courses.toLocaleString() + ' courses with a page link');
+  else console.log('Discover Uni dataset not found; course links will be empty (see courselinks.js)');
 
   console.log('Pulling ' + year + ' ' + level + ' from Algolia…');
   const res = await exporter.runExport(
@@ -208,7 +230,7 @@ async function main() {
   const BATCH = 25;
   for (let i = 0; i < res.rows.length; i += BATCH) {
     const chunk = res.rows.slice(i, i + BATCH);
-    const values = chunk.map(h => '(' + toRow(h, tariffs, grades) + ')').join(',\n');
+    const values = chunk.map(h => '(' + toRow(h, tariffs, grades, links) + ')').join(',\n');
     parts.push('INSERT OR REPLACE INTO courses ' + COLS + ' VALUES\n' + values + ';');
   }
 
@@ -252,6 +274,11 @@ async function main() {
   console.log('  rows              : ' + res.rows.length.toLocaleString());
   console.log('  with requirements : ' + withT.toLocaleString() +
               '  (' + ((withT / res.rows.length) * 100).toFixed(1) + '%)');
+  if (links) {
+    const linked = res.rows.filter(h => linkFor(h, links)).length;
+    console.log('  with course page  : ' + linked.toLocaleString() +
+                '  (' + ((linked / res.rows.length) * 100).toFixed(1) + '%)');
+  }
   console.log('  upstream queries  : ' + res.queries);
   console.log('\nNext:');
   console.log('  npx wrangler d1 execute ucasbuster --remote --file=' + out);

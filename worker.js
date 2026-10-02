@@ -50,6 +50,8 @@ function toCourse(r) {
     studyLevel: r.level,
     providerWebsite: r.provider_url,
     ucasUrl: r.ucas_url,
+    courseUrl: r.course_url || null,
+    courseLink: r.course_link || null,
     optionCount: 1,
     summary: '',
   };

@@ -15,8 +15,12 @@ server.dbg.js
 exports/
 *.ndjson
 
-# Generated D1 snapshots
+# Generated D1 snapshots and link backfills
 snapshot-*.sql
+links-*.sql
+
+# Discover Uni dataset, downloaded by hand (~450 MB); see courselinks.js
+data/hesa/
 
 # Wrangler local state
 .wrangler/

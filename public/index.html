@@ -224,13 +224,13 @@
   col.w-title{width:38%}
   col.w-prov{width:24%}
   col.w-code{width:58px}      /* UCAS codes are uniformly 4 characters */
-  col.w-grade{width:82px}
+  col.w-grade{width:116px}    /* fits a converted range like ~A*AA–ABB */
   col.w-points{width:104px}
   col.w-band{width:56px}
   col.w-award{width:92px}
   col.w-len{width:70px}
   col.w-start{width:104px}
-  col.w-link{width:58px}
+  col.w-link{width:104px}
   col.w-gap{width:auto}
   /* Caps the measured share so very wide screens do not stretch the two text
      columns past comfortable reading length. */
@@ -288,6 +288,9 @@
   tbody tr:hover a.ext{color:var(--accent);border-color:#33506f;background:#1e2c42}
   a.ext:hover{color:#07101f !important;background:var(--accent) !important;
     border-color:var(--accent) !important;text-decoration:none}
+  a.ext + a.ext{margin-left:4px}
+  /* A search, not a direct link: dashed so the difference shows at a glance. */
+  a.ext.find{border-style:dashed}
 
   /* The title is a link to the same place. Underlined only on hover so the
      table does not turn into a wall of blue. */
@@ -910,35 +913,42 @@ function visible(){
 // A-level tariff: A*=56 A=48 B=40 C=32 D=24 E=16.
 const ALPTS = {'A*':56,'A':48,'B':40,'C':32,'D':24,'E':16};
 
-function gradePoints(text){
+// Points for a grade value, as {lo, hi}. A range like "AAB - ABB" quotes the
+// typical offer first and the lowest acceptable second.
+function gradeRange(text){
   const t = String(text||'').trim();
   // Guards against "See entry requirements" and other prose.
   if(!t || !/^[A-E*\s\-]+$/i.test(t)) return null;
-  // A range like "AAB - ABB" quotes the typical offer first and the lowest
-  // acceptable second; take the lower bound, which is what gets you in.
-  const parts = t.split(/\s*-\s*/);
-  const low = parts[parts.length-1].trim();
-  const m = low.match(/A\*|[A-E]/gi);
-  if(!m || !m.length) return null;
-  return m.reduce((a,g)=>a + (ALPTS[g.toUpperCase()] || 0), 0);
+  const pts = t.split(/\s*-\s*/).map(part=>{
+    const m = part.match(/A\*|[A-E]/gi);
+    return m ? m.reduce((a,g)=>a + (ALPTS[g.toUpperCase()] || 0), 0) : null;
+  }).filter(p=>p != null);
+  if(!pts.length) return null;
+  return {lo:Math.min.apply(null, pts), hi:Math.max.apply(null, pts)};
 }
 
-// One number per course, or null when nothing is published.
-//
-// Wide point ranges need care. A course quoted "93 - 198 points" is not an
-// easy one: the floor is a contextual-offer or access-route minimum, while
-// the typical ask sits far above it. 1,701 courses quote a spread of 40+
-// points, and ranking those on the minimum put competitive London courses
-// below foundation years. Beyond that spread the midpoint is the fairer
-// summary; within it the minimum is the real ask.
-function entryPoints(r){
-  if(r.tariffIsGrades) return gradePoints(r.tariff);
-  const lo = r.tariffMin, hi = r.tariffMax;
-  if(lo && hi && hi - lo >= 40) return Math.round((lo + hi) / 2);
-  if(lo) return lo;
-  if(hi) return hi;
+// A course's published requirement as a points range, or null when nothing
+// is published.
+function entryRange(r){
+  if(r.tariffIsGrades) return gradeRange(r.tariff);
+  let lo = r.tariffMin, hi = r.tariffMax;
   // Borrowed point values are display strings and do not carry min/max fields.
-  return tariffNum(r.tariff);
+  if(!lo && !hi){
+    const m = String(r.tariff||'').match(/\d+/g);
+    if(!m) return null;
+    const n = m.map(Number);
+    lo = Math.min.apply(null, n); hi = Math.max.apply(null, n);
+  }
+  return {lo:lo || hi, hi:hi || lo};
+}
+
+// One number per course: the top of the published range. The lower figure is
+// usually a contextual or access-route offer most applicants do not qualify
+// for, so the top is what a student needs to be sure of a place. Sorting,
+// banding and the tariff filter all use it.
+function entryPoints(r){
+  const rg = entryRange(r);
+  return rg ? rg.hi : null;
 }
 
 // Nearest three-A-level equivalent for a UCAS points total. This is a guide:
@@ -954,8 +964,13 @@ const GRADE_EQUIVALENTS = (()=>{
   return out;
 })();
 
+// Three A-levels top out at A*A*A*. Higher tariffs assume a fourth A-level,
+// an EPQ or other qualifications, so they cap there.
+const MAX_THREE = 3 * ALPTS['A*'];
+
 function pointsToGrades(points){
   if(points == null) return null;
+  if(points >= MAX_THREE) return 'A*A*A*';
   return GRADE_EQUIVALENTS.reduce((best,x)=>{
     const xd = Math.abs(x.points-points), bd = Math.abs(best.points-points);
     return xd < bd || (xd === bd && x.spread < best.spread) ? x : best;
@@ -965,23 +980,27 @@ function pointsToGrades(points){
 function requirementViews(r){
   if(!r.tariff) return {grades:'—',points:'—',official:null};
   const source = r.tariffFrom ? 'Published for '+r.tariffFrom : 'Published by the university';
+  const rg = entryRange(r);
   if(r.tariffIsGrades){
-    const points = gradePoints(r.tariff);
     return {
       grades:r.tariff,
-      points:points==null?'—':'~'+points,
+      points:!rg?'—':'~'+(rg.lo===rg.hi ? rg.hi : rg.lo+'–'+rg.hi),
       official:'grades',
       gradesTitle:source+' as A-level grades',
-      pointsTitle:points==null?'Could not convert these grades':'Approximate UCAS points converted from the published grades',
+      pointsTitle:!rg?'Could not convert these grades':'Approximate UCAS points converted from the published grades',
     };
   }
   const pointsText = String(r.tariff).replace(/\s*points?\s*/ig,'').replace(/\s*-\s*/g,'–');
-  const grades = pointsToGrades(entryPoints(r));
+  // Highest first, the way universities write grade ranges ("AAB - ABB").
+  const hiG = rg && pointsToGrades(rg.hi), loG = rg && pointsToGrades(rg.lo);
+  const grades = !hiG ? null : hiG===loG ? hiG : hiG+'–'+loG;
   return {
     grades:grades?'~'+grades:'—',
     points:pointsText || '—',
     official:'points',
-    gradesTitle:grades?'Approximate three-A-level equivalent converted from the published UCAS tariff':'Could not convert this tariff',
+    gradesTitle:!grades ? 'Could not convert this tariff'
+      : 'Approximate three-A-level equivalent converted from the published UCAS tariff'
+        + (rg.hi > MAX_THREE ? '. The top figure is above A*A*A* and assumes qualifications beyond three A-levels' : ''),
     pointsTitle:source+' as UCAS tariff points',
   };
 }
@@ -1063,6 +1082,7 @@ function render(){
   rows.forEach((r,i)=>{
     const pts = entryPoints(r), b = band(pts);
     const req = requirementViews(r);
+    const uni = uniLink(r);
     const level = b ? Number(b.key.slice(1)) : 0;
     const meter = Array.from({length:6},(_,n)=>
       '<i class="s'+(n+1)+(n<level?' on':'')+'"></i>').join('');
@@ -1086,7 +1106,9 @@ function render(){
       + '<td class="c-link">'+(r.ucasUrl
           ? '<a class="ext" href="'+esc(r.ucasUrl)+'" target="_blank" rel="noopener"'
             + ' title="Open this course on ucas.com">UCAS</a>'
-          : '')+'</td>'
+          : '')
+      + '<a class="ext'+(uni.search?' find':'')+'" href="'+esc(uni.href)+'" target="_blank"'
+        + ' rel="noopener" title="'+esc(uni.title)+'">'+(uni.search?'FIND':'UNI')+'</a></td>'
       + '<td class="c-gap"></td>'
       + '</tr>';
   });
@@ -1155,6 +1177,26 @@ function row(dt, dd){
   return dd ? '<dt>'+dt+'</dt><dd>'+esc(dd)+'</dd>' : '';
 }
 
+// The course on the university's own site. Discover Uni supplies a direct
+// link for about three rows in four; the rest get a Google search scoped to
+// the university's domain, which usually lands on the course page too.
+function uniLink(r){
+  if(r.courseUrl) return {
+    href: r.courseUrl, search: false,
+    title: r.courseLink==='base'
+      ? 'Main course page on the university site — this variant is listed there'
+      : 'This course on the university site',
+  };
+  const host = String(r.providerWebsite||'').trim()
+    .replace(/^https?:\/\//i,'').replace(/^\/+/,'').split(/[\/?#]/)[0];
+  const q = (host ? 'site:'+host : r.provider||'') + ' ' + (r.title||'') + ' '
+          + String(r.studyLevel||'undergraduate').toLowerCase();
+  return {
+    href: 'https://www.google.com/search?q='+encodeURIComponent(q.trim()), search: true,
+    title: 'No direct link — search '+(host||'the web')+' for this course',
+  };
+}
+
 function fill(r){
   const pp = entryPoints(r), pb = band(pp);
   $('#ptitle').textContent = r.title || '';
@@ -1162,12 +1204,9 @@ function fill(r){
 
   const ucas = $('#pucas');
   if(r.ucasUrl){ ucas.href = r.ucasUrl; ucas.hidden = false; } else ucas.hidden = true;
-  const web = $('#pweb');
-  // Two thirds of provider URLs arrive without a scheme ("www.dur.ac.uk"),
-  // which a browser treats as a relative path and resolves against this site.
-  let site = r.providerWebsite || r.courseUrl || '';
-  if(site && !/^https?:\/\//i.test(site)) site = 'https://' + site.replace(/^\/+/, '');
-  if(site){ web.href = site; web.hidden = false; } else web.hidden = true;
+  const web = $('#pweb'), u = uniLink(r);
+  web.href = u.href; web.title = u.title;
+  web.innerHTML = (u.search ? 'Find on university site' : 'Course page') + ' &nearr;';
 
   // Entry requirement first and large — it is the thing being compared.
   let h = '<div class="pbox">'

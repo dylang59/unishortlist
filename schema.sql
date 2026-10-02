@@ -36,7 +36,11 @@ CREATE TABLE courses (
   tariff_grades INTEGER DEFAULT 0,  -- 1 when tariff_text holds A-level grades
   subjects      TEXT,               -- keyword blob, used for LIKE filtering
   provider_url  TEXT,
-  ucas_url      TEXT
+  ucas_url      TEXT,
+  ukprn         TEXT,               -- UK provider reference number
+  course_url    TEXT,               -- university's own course page (Discover Uni)
+  course_link   TEXT                -- 'exact', or 'base' when matched on the
+                                    -- base course of a variant; NULL if none
 );
 
 -- year+level scopes every query; provider is the UI's most selective filter.

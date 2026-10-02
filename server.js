@@ -12,8 +12,13 @@ const http = require('http');
 const fs = require('fs');
 const path = require('path');
 const exporter = require('./export');
+const courselinks = require('./courselinks');
 
 const PORT = process.env.PORT || 8787;
+
+// Course page links, matched in memory. Optional: without the dataset on
+// disk every row simply has no courseUrl.
+const LINKS = courselinks.load();
 
 const ALGOLIA_APP = process.env.ALGOLIA_APP || 'Y3QRV216KL';
 const ALGOLIA_KEY = process.env.ALGOLIA_KEY || 'c0f72e5c62250ac258c2cf4a3896c19d';
@@ -173,6 +178,10 @@ function flatten(hit) {
   })).filter(r => r.offer);
 
   const geo = (hit._geoloc && hit._geoloc[0]) || {};
+  const link = LINKS && LINKS.match({
+    ukprn: prov.ukprn, providerUrl: prov.url, title: hit.courseTitle,
+    studyMode: opt.studyMode && opt.studyMode.mappedCaption, appCode: opt.applicationCode,
+  });
 
   return {
     id: hit.courseId,
@@ -211,7 +220,8 @@ function flatten(hit) {
       ? hit.searchSubjects.map(s => (s && s.name) || s).filter(Boolean)
       : [],
     summary: '',
-    courseUrl: null,
+    courseUrl: link ? link.url : null,
+    courseLink: link ? link.how : null,
     ucasUrl: 'https://www.ucas.com/explore/courses/' + hit.courseId
            + (slugify(hit.courseTitle) ? '/' + slugify(hit.courseTitle) : '')
            + '?studyYear=' + (hit.academicYearId || ''),
@@ -614,4 +624,6 @@ const server = http.createServer(async (req, res) => {
 server.listen(PORT, () => {
   console.log('UCAS search running:  http://localhost:' + PORT);
   console.log('index: ' + INDEX);
+  console.log(LINKS ? 'course links: ' + LINKS.courses.toLocaleString() + ' Discover Uni courses'
+                    : 'course links: off (Discover Uni dataset not found)');
 });
