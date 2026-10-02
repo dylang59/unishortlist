@@ -292,13 +292,10 @@
   /* A search, not a direct link: dashed so the difference shows at a glance. */
   a.ext.find{border-style:dashed}
 
-  /* The title is a link to the same place. Underlined only on hover so the
-     table does not turn into a wall of blue. */
-  a.ttl.tlink{color:var(--text);text-decoration:none;display:inline-block;
-    max-width:100%;overflow:hidden;text-overflow:ellipsis;vertical-align:bottom}
-  a.ttl.tlink:hover{color:var(--accent);text-decoration:underline;
-    text-underline-offset:2px}
-  tbody tr.sel a.ttl.tlink{color:#fff}
+  /* The title is plain text: clicking the row opens the side panel, and the
+     UCAS button is the way out to ucas.com. Inline-block so a long title
+     ends in an ellipsis. */
+  td.c-title .ttl{display:inline-block;max-width:100%;vertical-align:bottom}
 
   /* Codes are a fixed-width identifier, not a label: monospace so they line
      up as a column the eye can run down. */
@@ -1173,10 +1170,7 @@ function render(){
       + '<td class="c-code">'+(r.applicationCode
           ? '<span class="code">'+esc(r.applicationCode)+'</span>'
           : '<span class="code none">—</span>')+'</td>'
-      + '<td class="c-title">'+(r.ucasUrl
-          ? '<a class="ttl tlink" href="'+esc(r.ucasUrl)+'" target="_blank" rel="noopener"'
-            + ' title="Open this course on UCAS">'+esc(r.title)+'</a>'
-          : '<span class="ttl">'+esc(r.title)+'</span>')+'</td>'
+      + '<td class="c-title"><span class="ttl" title="'+esc(r.title)+'">'+esc(r.title)+'</span></td>'
       + '<td class="mini c-award">'+esc(r.award||'')+'</td>'
       + '<td class="c-prov prov">'+esc(r.provider)+'</td>'
       + '<td class="c-grade tar '+(req.official==='grades'?'official':'converted')+(req.grades==='—'?' none':'')+(b?' '+b.key:'')+'" title="'+esc(req.gradesTitle||'No entry requirement published')+'">'+esc(req.grades)+'</td>'
