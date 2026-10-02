@@ -221,15 +221,16 @@
      sized to its content. A spacer column absorbs the slack so that on a wide
      monitor the leftover space does not all land in Course, leaving a huge
      gap between a 32-character title and the university name. */
-  col.w-title{width:42%}
-  col.w-prov{width:26%}
-  col.w-code{width:62px}      /* UCAS codes are uniformly 4 characters */
-  col.w-tar{width:128px}      /* fits "~112 - 120 points", the longest value */
-  col.w-band{width:116px}
-  col.w-award{width:104px}
-  col.w-len{width:76px}
-  col.w-start{width:112px}
-  col.w-link{width:62px}
+  col.w-title{width:38%}
+  col.w-prov{width:24%}
+  col.w-code{width:58px}      /* UCAS codes are uniformly 4 characters */
+  col.w-grade{width:82px}
+  col.w-points{width:104px}
+  col.w-band{width:56px}
+  col.w-award{width:92px}
+  col.w-len{width:70px}
+  col.w-start{width:104px}
+  col.w-link{width:58px}
   col.w-gap{width:auto}
   /* Caps the measured share so very wide screens do not stretch the two text
      columns past comfortable reading length. */
@@ -243,13 +244,32 @@
      viewport, so the spacer would collapse and the browser would squeeze the
      fixed widths. Shrink the text columns instead and drop the spacer. */
   @media (max-width:1200px){
-    col.w-title{width:38%}
-    col.w-prov{width:24%}
+    col.w-title{width:40%}
+    col.w-prov{width:25%}
     col.w-gap{width:0}
+    col.w-start,th.c-start,td.c-start{display:none}
   }
   @media (max-width:900px){
-    col.w-start{width:92px}
-    col.w-award{width:86px}
+    col.w-title{width:42%}
+    col.w-prov{width:25%}
+    col.w-award{width:82px}
+    col.w-code,th.c-code,td.c-code,
+    col.w-len,th.c-len,td.c-len{display:none}
+  }
+  @media (max-width:700px){
+    col.w-title{width:44%}
+    col.w-prov{width:26%}
+    col.w-award{width:78px}
+    col.w-band{width:44px}
+    col.w-grade,th.c-grade,td.c-grade,
+    col.w-points,th.c-points,td.c-points,
+    col.w-link,th.c-link,td.c-link{display:none}
+  }
+  @media (max-width:520px){
+    col.w-title{width:50%}
+    col.w-prov{width:35%}
+    col.w-band{width:48px}
+    col.w-award,th.c-award,td.c-award{display:none}
   }
   .sub{color:var(--dim);font-size:12px;margin-top:2px}
   .prov{color:#c3ccda;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
@@ -300,10 +320,13 @@
   .tar.b4{color:#a7abe4} .tar.b5{color:#c4a3e0} .tar.b6{color:#e49bc0}
   .tar.prev{font-weight:500;opacity:.9}
   .tar.none{color:#4a5260;font-weight:400}
+  .tar.converted{font-weight:500;opacity:.75}
+  .tar.official::after{content:'';display:inline-block;width:4px;height:4px;
+    margin-left:5px;border-radius:50%;background:var(--action);vertical-align:2px}
 
   /* Entry difficulty. A single-hue ramp from cool to warm: harder to get into
      is not "bad", so a red/green traffic light would read as a judgement. */
-  td.c-band{padding:0 10px}
+  td.c-band{padding:0 5px}
   .bnd{display:inline-flex;align-items:center;gap:6px;font-size:11.5px;
     color:var(--dim);white-space:nowrap}
   .bnd i{width:26px;height:5px;border-radius:0;flex:none;font-style:normal}
@@ -314,6 +337,19 @@
   .bnd.b5 i{background:#9668bf}  .bnd.b5{color:#c4a3e0}
   .bnd.b6 i{background:#c2568f}  .bnd.b6{color:#e49bc0}
   .bnd.bx i{background:#2a313d}  .bnd.bx{color:#4a5260}
+  /* Compact six-step entry meter. Filled segments run from broad-entry green
+     through to the highest-entry pink. The tooltip carries the written label. */
+  .entry-meter{display:inline-flex;align-items:center;gap:3px;height:16px;
+    vertical-align:middle}
+  .entry-meter i{display:block;width:5px;height:14px;border-radius:1px;
+    background:#303641;opacity:.55}
+  .entry-meter i.on{opacity:1}
+  .entry-meter i.s1.on{background:#2f8a6e}
+  .entry-meter i.s2.on{background:#3f94a2}
+  .entry-meter i.s3.on{background:#4f8fc9}
+  .entry-meter i.s4.on{background:#777fd8}
+  .entry-meter i.s5.on{background:#a66ecf}
+  .entry-meter i.s6.on{background:#d35f9b}
   a{color:var(--accent);text-decoration:none}
   a:hover{text-decoration:underline}
   /* Scoped to the message div, not #out: the container keeps its initial
@@ -851,7 +887,7 @@ function visible(){
     let x,y;
     // Entry sorts on the shared points scale, so grade-quoting and
     // point-quoting universities interleave correctly instead of grouping.
-    if(k==='entry'){ x=entryPoints(a); y=entryPoints(b);
+    if(k==='entry' || k==='grades' || k==='points'){ x=entryPoints(a); y=entryPoints(b);
       if(x==null) return 1; if(y==null) return -1; return (x-y)*d; }
     if(k==='tariff'){ x=tariffNum(a.tariff); y=tariffNum(b.tariff);
       if(x==null) return 1; if(y==null) return -1; return (x-y)*d; }
@@ -901,7 +937,53 @@ function entryPoints(r){
   if(lo && hi && hi - lo >= 40) return Math.round((lo + hi) / 2);
   if(lo) return lo;
   if(hi) return hi;
-  return null;
+  // Borrowed point values are display strings and do not carry min/max fields.
+  return tariffNum(r.tariff);
+}
+
+// Nearest three-A-level equivalent for a UCAS points total. This is a guide:
+// tariff offers can also be met with other qualifications and combinations.
+const GRADE_EQUIVALENTS = (()=>{
+  const grades = ['A*','A','B','C','D','E'];
+  const out = [];
+  for(let a=0;a<grades.length;a++) for(let b=a;b<grades.length;b++)
+    for(let c=b;c<grades.length;c++){
+      const label = grades[a]+grades[b]+grades[c];
+      out.push({label,points:ALPTS[grades[a]]+ALPTS[grades[b]]+ALPTS[grades[c]],spread:c-a});
+    }
+  return out;
+})();
+
+function pointsToGrades(points){
+  if(points == null) return null;
+  return GRADE_EQUIVALENTS.reduce((best,x)=>{
+    const xd = Math.abs(x.points-points), bd = Math.abs(best.points-points);
+    return xd < bd || (xd === bd && x.spread < best.spread) ? x : best;
+  }).label;
+}
+
+function requirementViews(r){
+  if(!r.tariff) return {grades:'—',points:'—',official:null};
+  const source = r.tariffFrom ? 'Published for '+r.tariffFrom : 'Published by the university';
+  if(r.tariffIsGrades){
+    const points = gradePoints(r.tariff);
+    return {
+      grades:r.tariff,
+      points:points==null?'—':'~'+points,
+      official:'grades',
+      gradesTitle:source+' as A-level grades',
+      pointsTitle:points==null?'Could not convert these grades':'Approximate UCAS points converted from the published grades',
+    };
+  }
+  const pointsText = String(r.tariff).replace(/\s*points?\s*/ig,'').replace(/\s*-\s*/g,'–');
+  const grades = pointsToGrades(entryPoints(r));
+  return {
+    grades:grades?'~'+grades:'—',
+    points:pointsText || '—',
+    official:'points',
+    gradesTitle:grades?'Approximate three-A-level equivalent converted from the published UCAS tariff':'Could not convert this tariff',
+    pointsTitle:source+' as UCAS tariff points',
+  };
 }
 
 // Bands chosen from the actual distribution across all 29,774 courses, with
@@ -958,26 +1040,32 @@ function render(){
   }
   // Location is gone: town and region live in the side panel, and dropping the
   // column buys the width that keeps course titles on one line.
-  const cols = [['applicationCode','Code'],['title','Course'],['provider','University'],
-                ['tariff','Tariff'],['entry','Entry'],['award','Award'],
+  const cols = [['applicationCode','Code'],['title','Course'],['award','Award'],
+                ['provider','University'],['grades','Grades'],['points','UCAS'],['entry','Entry'],
                 ['duration','Len'],['start','Start']];
   // table-layout:fixed needs a colgroup for the widths to apply.
   let h = '<table><colgroup>'
-    + '<col class="w-code"><col class="w-title"><col class="w-prov">'
-    + '<col class="w-tar"><col class="w-band"><col class="w-award">'
+    + '<col class="w-code"><col class="w-title"><col class="w-award">'
+    + '<col class="w-prov"><col class="w-grade"><col class="w-points"><col class="w-band">'
     + '<col class="w-len"><col class="w-start"><col class="w-link">'
     + '<col class="w-gap"></colgroup><thead><tr>';
   cols.forEach(([k,label],ci)=>{
     const on = SORT.key===k;
-    const cls = (on?'sorted':'') +
-      (ci===0?' c-code':ci===1?' c-title':ci===2?' c-prov':ci===4?' c-band':'');
-    h += '<th data-k="'+k+'" class="'+cls.trim()+'">'+label
+    const classes = ['c-code','c-title','c-award','c-prov','c-grade','c-points','c-band','c-len','c-start'];
+    const cls = (on?'sorted ':'') + classes[ci];
+    const tip = k==='grades' || k==='points'
+      ? 'Published values have a green dot. ~ means converted.' : '';
+    h += '<th data-k="'+k+'" class="'+cls.trim()+'"'+(tip?' title="'+tip+'"':'')+'>'+label
       +  '<span class="car">'+(on ? (SORT.dir>0?'▲':'▼') : '▼')+'</span></th>';
   });
   h += '<th class="c-link"></th><th class="c-gap"></th>'
     +  '</tr></thead><tbody>';
   rows.forEach((r,i)=>{
     const pts = entryPoints(r), b = band(pts);
+    const req = requirementViews(r);
+    const level = b ? Number(b.key.slice(1)) : 0;
+    const meter = Array.from({length:6},(_,n)=>
+      '<i class="s'+(n+1)+(n<level?' on':'')+'"></i>').join('');
     h += '<tr data-i="'+i+'">'
       + '<td class="c-code">'+(r.applicationCode
           ? '<span class="code">'+esc(r.applicationCode)+'</span>'
@@ -986,14 +1074,15 @@ function render(){
           ? '<a class="ttl tlink" href="'+esc(r.ucasUrl)+'" target="_blank" rel="noopener"'
             + ' title="Open this course on UCAS">'+esc(r.title)+'</a>'
           : '<span class="ttl">'+esc(r.title)+'</span>')+'</td>'
+      + '<td class="mini c-award">'+esc(r.award||'')+'</td>'
       + '<td class="c-prov prov">'+esc(r.provider)+'</td>'
-      + '<td class="tar'+(r.tariffFrom?' prev':'')+(r.tariff?'':' none')+(b?' '+b.key:'')+'" title="'+(r.tariffFrom?((r.tariffIsGrades?'A-level grades from ':'from ')+r.tariffFrom+(r.tariffIsGrades?'':' entry')):'')+'">'+(r.tariffFrom?'~':'')+esc(r.tariff||'—')+'</td>'
+      + '<td class="c-grade tar '+(req.official==='grades'?'official':'converted')+(req.grades==='—'?' none':'')+(b?' '+b.key:'')+'" title="'+esc(req.gradesTitle||'No entry requirement published')+'">'+esc(req.grades)+'</td>'
+      + '<td class="c-points tar '+(req.official==='points'?'official':'converted')+(req.points==='—'?' none':'')+(b?' '+b.key:'')+'" title="'+esc(req.pointsTitle||'No entry requirement published')+'">'+esc(req.points)+'</td>'
       + '<td class="c-band">'+(b
-          ? '<span class="bnd '+b.key+'" title="'+esc(b.label+' — '+b.hint+' ('+pts+' UCAS points)')+'"><i></i>'+b.label+'</span>'
-          : '<span class="bnd bx" title="No entry requirement published"><i></i></span>')+'</td>'
-      + '<td class="mini">'+esc(r.award||'')+'</td>'
-      + '<td class="mini">'+esc(r.duration||'')+'</td>'
-      + '<td class="mini">'+esc(r.start||'')+'</td>'
+          ? '<span class="entry-meter" title="'+esc(b.label+' — '+b.hint+' ('+pts+' UCAS points)')+'" aria-label="'+esc(b.label+' entry difficulty')+'">'+meter+'</span>'
+          : '<span class="entry-meter" title="No entry requirement published" aria-label="No entry requirement published">'+meter+'</span>')+'</td>'
+      + '<td class="mini c-len">'+esc(r.duration||'')+'</td>'
+      + '<td class="mini c-start">'+esc(r.start||'')+'</td>'
       + '<td class="c-link">'+(r.ucasUrl
           ? '<a class="ext" href="'+esc(r.ucasUrl)+'" target="_blank" rel="noopener"'
             + ' title="Open this course on ucas.com">UCAS</a>'
