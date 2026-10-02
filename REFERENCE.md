@@ -261,9 +261,11 @@ the UCAS rows at import time and stores the result in `course_url`.
 
 **Getting the data.** HESA's site blocks scripted downloads, so fetch the zip by
 hand from https://www.hesa.ac.uk/support/tools-and-downloads/unistats and unzip
-it to `data/hesa/DiscoverUni_latest` (git-ignored, ~450 MB, of which only
-`KISCOURSE.csv` and `INSTITUTION.csv` are read). It is updated weekly; once a
-cycle is enough. Load it before the snapshot step, or re-link afterwards (below).
+it to `data/hesa/DiscoverUni_latest` (git-ignored, ~450 MB). The links read
+`KISCOURSE.csv` and `INSTITUTION.csv`; the panel figures read about a dozen
+more (see [Course panel](#course-panel-discover-uni-figures)); the 350 MB XML
+copy of the same data is not used. It is updated weekly; once a cycle is
+enough. Load it before the snapshot step, or re-link afterwards (below).
 
 **There is no shared course key.** Discover Uni's `UCASCOURSEID` is a four-digit
 internal number, not the application code (`N321`) UCAS shows. So the join is:
@@ -314,8 +316,9 @@ university that drops to zero shows up there by name.
 **Re-linking after a new Discover Uni download** without re-pulling from
 Algolia: `node courselinks.js --snapshot snapshot-2027.sql --out links.sql`,
 then run `links.sql` against D1. It clears the cycle's links before writing,
-so links the matcher no longer makes are removed. It reads columns by name, so
-it needs a snapshot that has the `ukprn` column.
+so links the matcher no longer makes are removed, and rewrites `kis_key` and
+the panel's `hesa` records from the same download. It reads columns by name,
+so it needs a snapshot that has the `ukprn` column.
 
 ---
 
@@ -451,6 +454,16 @@ Columns worth knowing:
 - `tariff_from` — source year when borrowed, `NULL` when current.
 - `tariff_grades` — `1` when `tariff_text` holds grades, not points.
 - `subjects` — keyword blob, truncated to 500 chars, used for `LIKE`.
+- `ukprn` — the provider's UKPRN from UCAS (Discover Uni's `PUBUKPRN`).
+- `course_url`, `course_link` — the university's course page and how it was
+  matched (`exact` / `base`). See [Course page links](#course-page-links).
+- `kis_key` — the matched Discover Uni course, the key into `hesa`.
+
+Two small side tables: `provider_counts` (the picker's list, precomputed at
+import) and `hesa` (`kis_key` → one JSON record of panel figures, read one row
+at a time; see [Course panel](#course-panel-discover-uni-figures)). The JSON
+there is the one deliberate exception to "never parses JSON": it is passed
+through to the browser as text, never queried.
 
 Indexes cover the filters the UI actually issues: `(year, level)` always, then
 provider / award level / region / mode / tariff.
@@ -622,11 +635,12 @@ The data path is a separate, manual, three-step pipeline that runs **from your
 machine**:
 
 ```
-Algolia  --(1)-->  snapshot-2027.sql  --(2)-->  D1 (remote)  --(3)-->  Worker reads it
+Algolia + Discover Uni  --(1)-->  snapshot-2027.sql  --(2)-->  D1 (remote)  --(3)-->  Worker reads it
 ```
 
-1. **`npm run snapshot`** queries Algolia and writes a local .sql file. It
-   never contacts D1 or Cloudflare.
+1. **`npm run snapshot`** queries Algolia, joins the Discover Uni download on
+   disk (links and panel figures), and writes a local .sql file. It never
+   contacts D1 or Cloudflare. Read the coverage report it ends with.
 2. **`wrangler d1 execute --remote`** pushes that file into the live D1
    database over the API. This is the only step that changes production data.
 3. The Worker picks it up on the next request. No deploy needed — the data is
@@ -666,9 +680,15 @@ A snapshot from before the `ukprn` column can only match on website domain and
 misses providers such as Lancaster; the coverage report warns when that is the
 case.
 
-The .sql file is an intermediate artifact, gitignored and not in the repo
-(~21 MB, 1,190 INSERT statements). Keeping it means a failed load can be
-retried without re-querying Algolia.
+**When only Discover Uni changes** (a new download, no need for fresh course
+data), the re-link command above is the whole refresh: it rewrites the links,
+`kis_key` and the `hesa` records from the snapshot file already on disk, with
+no Algolia queries.
+
+The .sql file is an intermediate artifact, gitignored and not in the repo.
+Without Discover Uni records it was ~24 MB; the `hesa` records add roughly
+30 MB more. Keeping it means a failed load can be retried without re-querying
+Algolia.
 
 Check the cost before committing to a run — one query, no writes:
 
@@ -679,14 +699,16 @@ npm run export -- --year 2027 --level Undergraduate --dry-run
 There is no automation: no cron, no CI, no scheduled Worker. A refresh happens
 only when someone runs those commands.
 
-Roughly 500 Algolia queries, a few minutes. The floor is ~300 (29,781 rows at
+Roughly 550 Algolia queries, a few minutes. The floor is ~300 (29,781 rows at
 100 per query, plus a provider list); the rest is per-provider sharding overhead
-and the prior-year and legacy-grade lookups. Course data moves over weeks, so
-monthly is plenty.
+and the prior-year and legacy-grade lookups, the latter about 60 more since it
+also covers ranges too wide to be offers. Course data moves over weeks, so
+monthly is plenty. Discover Uni adds no queries; loading it takes ~6 s.
 
 **Batch INSERTs small.** D1 rejects oversized statements with `SQLITE_TOOBIG`.
-200 rows per statement fails; `import-d1.js` uses **25**, giving a 27 KB largest
-statement. If you hit this after a data change, re-batch the existing `.sql`
+200 rows per statement fails; `import-d1.js` uses **25** for courses, giving a
+27 KB largest statement, and **10** for `hesa` records (up to ~4 KB each,
+26 KB largest). If you hit this after a data change, re-batch the existing `.sql`
 file rather than re-querying Algolia — that is ~500 queries you do not need to
 spend twice.
 
@@ -715,7 +737,12 @@ npm start                      # local server on :8787
 npm run export -- --year 2027   # bulk export to NDJSON
 npm run snapshot -- --year 2027  # build a D1 .sql file
 npm run deploy                   # wrangler deploy
+node courselinks.js --snapshot snapshot-2027.sql --out links.sql
+                                 # re-link + panel figures from a new Discover Uni download
 ```
+
+`import-d1.js` and `courselinks.js` both take `--hesa <dir>` to read Discover
+Uni from somewhere other than `data/hesa/DiscoverUni_latest`.
 
 `export.js` flags: `--year`, `--level`, `--query`, `--providers` (comma list),
 `--out`, `--format` (`ndjson`|`csv`), `--pause` (ms between queries),
@@ -731,6 +758,11 @@ there; the CLI is for typing `ucl,durham` by hand.
 
 **The local server is not a service.** Plain `node server.js`. It dies with its
 terminal and does not survive a reboot. Nothing restarts it.
+
+**Discover Uni locally.** `server.js` matches course links at startup and
+builds the panel figures on the first panel opened (~6 s, then in memory), from
+the same `data/hesa/DiscoverUni_latest`. Without the dataset both are simply
+absent.
 
 **Caching.** `server.js` caches by query params for 30 min (`CACHE_TTL_MS`),
 max 500 entries, with in-flight deduplication so two identical concurrent

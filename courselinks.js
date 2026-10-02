@@ -26,7 +26,8 @@
 // Unzip it to data/hesa/DiscoverUni_latest (git-ignored, ~450 MB).
 //
 // Backfill an existing snapshot without re-pulling from Algolia, after a new
-// Discover Uni download (it clears and rewrites the cycle's links):
+// Discover Uni download (it clears and rewrites the cycle's links, kis_key and
+// the panel's hesa records -- see hesa.js):
 //   node courselinks.js --snapshot snapshot-2027.sql --out links-2027.sql
 //   npx wrangler d1 execute ucasbuster --remote --file=links-2027.sql
 // The snapshot must carry the ukprn column (any built since it was added);

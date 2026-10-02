@@ -6,7 +6,8 @@
 //
 // Usage:
 //   node import-d1.js --year 2027 --level Undergraduate --out snapshot.sql
-//     [--hesa data/hesa/DiscoverUni_latest]   course page links; see courselinks.js
+//     [--hesa data/hesa/DiscoverUni_latest]   course page links and panel
+//                                             figures; see courselinks.js, hesa.js
 //   npx wrangler d1 execute ucasbuster --remote --file=snapshot.sql
 const fs = require('fs');
 const path = require('path');
